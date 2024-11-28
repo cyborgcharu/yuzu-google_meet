@@ -1,5 +1,3 @@
-// src/services/meetService.js
-
 class MeetService {
   constructor() {
     this.state = {
@@ -12,22 +10,26 @@ class MeetService {
     
     this.subscribers = new Set();
     this._mediaStream = null;
-    
-    // Create a broadcast channel for cross-interface communication
     this.channel = new BroadcastChannel('yuzu-meet');
     this.channel.onmessage = (event) => {
       switch (event.data.type) {
-        case 'VIDEO_TOGGLE':
-          this._handleVideoToggle(event.data.isVideoOff);
-          break;
-        case 'AUDIO_TOGGLE':
-          this._handleAudioToggle(event.data.isMuted);
-          break;
-        case 'END_MEETING':
-          this._handleEndMeeting();
-          break;
+        case 'VIDEO_TOGGLE': this._handleVideoToggle(event.data.isVideoOff); break;
+        case 'AUDIO_TOGGLE': this._handleAudioToggle(event.data.isMuted); break;
+        case 'END_MEETING': this._handleEndMeeting(); break;
       }
     };
+  }
+
+  generateMeetCode() {
+    const chars = 'abcdefghijklmnopqrstuvwxyz';
+    const numbers = '0123456789';
+    const charset = chars + numbers;
+    
+    const part1 = Array(3).fill().map(() => chars[Math.floor(Math.random() * chars.length)]).join('');
+    const part2 = Array(4).fill().map(() => charset[Math.floor(Math.random() * charset.length)]).join('');
+    const part3 = Array(3).fill().map(() => charset[Math.floor(Math.random() * charset.length)]).join('');
+    
+    return `${part1}-${part2}-${part3}`;
   }
 
   _handleVideoToggle(isVideoOff) {
@@ -57,22 +59,16 @@ class MeetService {
   async initializeMediaStream() {
     try {
       if (!this._mediaStream) {
-        console.log('Creating new MediaStream');
         this._mediaStream = await navigator.mediaDevices.getUserMedia({
           audio: true,
           video: true
         });
         
-        // Set initial states based on localStorage
         const videoTrack = this._mediaStream.getVideoTracks()[0];
         const audioTrack = this._mediaStream.getAudioTracks()[0];
         
-        if (videoTrack) {
-          videoTrack.enabled = !this.state.isVideoOff;
-        }
-        if (audioTrack) {
-          audioTrack.enabled = !this.state.isMuted;
-        }
+        if (videoTrack) videoTrack.enabled = !this.state.isVideoOff;
+        if (audioTrack) audioTrack.enabled = !this.state.isMuted;
       }
       return this._mediaStream;
     } catch (error) {
@@ -92,7 +88,6 @@ class MeetService {
       });
       
       this._handleVideoToggle(newIsVideoOff);
-      console.log(`Video toggled by ${source}, isVideoOff: ${newIsVideoOff}`);
     } catch (error) {
       console.error('Error toggling video:', error);
     }
@@ -109,7 +104,6 @@ class MeetService {
       });
       
       this._handleAudioToggle(newIsMuted);
-      console.log(`Audio toggled by ${source}, isMuted: ${newIsMuted}`);
     } catch (error) {
       console.error('Error toggling audio:', error);
     }
@@ -117,52 +111,45 @@ class MeetService {
 
   endMeeting = async () => {
     try {
-      this.channel.postMessage({
-        type: 'END_MEETING'
-      });
-      
+      this.channel.postMessage({ type: 'END_MEETING' });
       this._handleEndMeeting();
     } catch (error) {
       console.error('Error ending meeting:', error);
     }
   }
 
-  createMeeting = async (params) => {
-    try {
-      const existingMeeting = localStorage.getItem('currentMeeting');
-      if (existingMeeting) {
-        const meeting = JSON.parse(existingMeeting);
-        this.updateState({ currentMeeting: meeting });
-        return meeting;
-      }
-
-      const meeting = {
-        meetingId: `meeting-${Date.now()}`,
-        title: params.title,
-        startTime: params.startTime,
-        endTime: params.endTime,
-        meetingUrl: `https://meet.google.com/${Date.now()}`
-      };
-      
+  createMeeting(params) {
+    return fetch('http://localhost:3000/calendar/create-meeting', {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(params)
+    })
+    .then(response => {
+      if (!response.ok) throw new Error('Failed to create meeting');
+      return response.json();
+    })
+    .then(meeting => {
       this.updateState({ currentMeeting: meeting });
       localStorage.setItem('currentMeeting', JSON.stringify(meeting));
       return meeting;
-    } catch (error) {
+    })
+    .catch(error => {
       console.error('Error creating meeting:', error);
       throw error;
-    }
+    });
   }
 
   connectDevice = (deviceType) => {
     this.state.connectedDevices.add(deviceType);
     this.updateState({ connectedDevices: this.state.connectedDevices });
-    console.log(`Device connected: ${deviceType}`);
   }
 
   disconnectDevice = (deviceType) => {
     this.state.connectedDevices.delete(deviceType);
     this.updateState({ connectedDevices: this.state.connectedDevices });
-    console.log(`Device disconnected: ${deviceType}`);
   }
 
   updateState = (newState) => {

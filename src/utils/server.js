@@ -5,6 +5,8 @@ import cors from 'cors';
 import { google } from 'googleapis';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
+import calendarRouter from '../server/routes/calendar.js';
+
 
 // Load and validate environment variables
 dotenv.config();
@@ -35,6 +37,7 @@ const oauth2Client = new google.auth.OAuth2(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser(process.env.SESSION_SECRET));
+app.use('/calendar', calendarRouter);
 
 // 2. CORS configuration
 app.use(cors({
