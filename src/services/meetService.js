@@ -2,7 +2,6 @@
 class MeetService {
   constructor() {
     console.log('MeetService: Initializing with clean state');
-    localStorage.removeItem('currentMeeting'); // Clear any stored meeting
     this.state = {
       currentMeeting: null,
       isMuted: false,
@@ -12,7 +11,7 @@ class MeetService {
       isConnecting: false,
       error: null
     };
-    this.subscribers = new Set(); // Initialize subscribers
+    this.subscribers = new Set();
     this._mediaStream = null;
   }
 
@@ -78,6 +77,10 @@ class MeetService {
   }
 
   setCurrentMeeting(meeting) {
+    // Add check to prevent duplicate updates
+    if (this.state.currentMeeting?.meetingId === meeting?.meetingId) {
+      return;
+    }
     console.log('MeetService: Setting current meeting:', meeting);
     this.updateState({
       currentMeeting: meeting

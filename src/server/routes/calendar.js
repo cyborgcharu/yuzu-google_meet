@@ -6,6 +6,7 @@ const router = express.Router();
 console.log('Calendar Router: Initializing');
 
 router.post('/create-meeting', async (req, res) => {
+  if (res.headersSent) return; // Add this check
   console.log('Calendar Route: Creating new meeting');
   try {
     // Check for valid session and tokens
@@ -86,7 +87,7 @@ router.post('/create-meeting', async (req, res) => {
 
     console.log('Calendar Route: Event created successfully');
     
-    // Prepare meeting details response
+    // Prepare meeting details response    
     const meetingDetails = {
       meetingId: event.data.conferenceData.conferenceId,
       meetingUrl: event.data.hangoutLink,
@@ -96,12 +97,13 @@ router.post('/create-meeting', async (req, res) => {
       createdAt: new Date().toISOString(),
       organizer: event.data.organizer
     };
-
+    
     console.log('Calendar Route: Returning meeting details:', meetingDetails);
     res.json(meetingDetails);
 
   } catch (error) {
     console.error('Calendar Route: Error creating meeting:', error);
+    if (res.headersSent) return;
     
     if (error.code === 401 || error.response?.status === 401) {
       return res.status(401).json({

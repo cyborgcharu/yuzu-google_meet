@@ -8,33 +8,22 @@ export function MeetProvider({ children }) {
   console.log('MeetContext: Provider initializing');
   const [meetState, setMeetState] = useState(() => {
     console.log('MeetContext: Initializing state');
-    localStorage.removeItem('currentMeeting'); 
-    
-    const savedMeeting = localStorage.getItem('currentMeeting');
-    if (savedMeeting) {
-      console.log('MeetContext: Found saved meeting:', savedMeeting);
-      const meeting = JSON.parse(savedMeeting);
-      if (meeting.meetingId && meeting.meetingUrl) {
-        meetService.state.currentMeeting = meeting;
-        return meetService.state;
-      }
-    }
-    return {
-      ...meetService.state,
-      currentMeeting: null
-    };
+
+    return meetService.state;
   });
+
 
   useEffect(() => {
     console.log('MeetContext: Setting up subscription');
+    let mounted = true;
     const unsubscribe = meetService.subscribe(state => {
       console.log('MeetContext: Received state update:', state);
-      if (!state.currentMeeting || 
-          (state.currentMeeting.meetingId && state.currentMeeting.meetingUrl)) {
+      if (mounted && state.currentMeeting?.meetingId && state.currentMeeting?.meetingUrl) {
         setMeetState(state);
       }
     });
     return () => {
+      mounted = false;
       console.log('MeetContext: Cleaning up subscription');
       unsubscribe();
     };
