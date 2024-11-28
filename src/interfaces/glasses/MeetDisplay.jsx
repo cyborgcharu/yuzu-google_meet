@@ -10,17 +10,13 @@ import { useNavigate } from 'react-router-dom';
 import { meetService } from '../../services/meetService';
 
 export const GlassesMeetDisplay = () => {
-  const { user } = useAuth();
-  const navigate = useNavigate();
-  const videoRef = useRef(null);
-  const [isMuted, setIsMuted] = useState(false);
-  const [isVideoOff, setIsVideoOff] = useState(false);
-  const { currentMeeting, createMeeting } = useContext(MeetContext);
-
+  const [isCreatingMeeting, setIsCreatingMeeting] = useState(false);
+  
   useEffect(() => {
     const initializeMeeting = async () => {
-      if (!currentMeeting) {
+      if (!currentMeeting && !isCreatingMeeting) {
         try {
+          setIsCreatingMeeting(true);
           await createMeeting({
             title: `${user?.name}'s Meeting`,
             startTime: new Date().toISOString(),
@@ -28,12 +24,14 @@ export const GlassesMeetDisplay = () => {
           });
         } catch (err) {
           console.error('Failed to create meeting:', err);
+        } finally {
+          setIsCreatingMeeting(false);
         }
       }
     };
 
     initializeMeeting();
-  }, [currentMeeting, createMeeting, user]);
+  }, [currentMeeting, createMeeting, user, isCreatingMeeting]);
 
   const handleMuteToggle = () => {
     setIsMuted((prevState) => !prevState);

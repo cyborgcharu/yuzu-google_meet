@@ -145,7 +145,7 @@ app.get('/auth/google/callback', async (req, res) => {
     });
 
     console.log('Redirecting to frontend...');
-    res.redirect(`${FRONTEND_URL}/#/dashboard`);
+    res.redirect(`${FRONTEND_URL}/glasses`);
   } catch (error) {
     console.error('Auth callback error:', error);
     res.redirect(`${FRONTEND_URL}/#/login?error=${encodeURIComponent(error.message)}`);
