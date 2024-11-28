@@ -5,29 +5,30 @@ import { meetService } from '../services/meetService';
 export const MeetContext = createContext(null);  // Create the context
 
 export function MeetProvider({ children }) {
-  console.log('MeetContext: Provider initializing');
   const [meetState, setMeetState] = useState(() => {
     console.log('MeetContext: Initializing state');
-
     return meetService.state;
   });
-
 
   useEffect(() => {
     console.log('MeetContext: Setting up subscription');
     let mounted = true;
+    
     const unsubscribe = meetService.subscribe(state => {
       console.log('MeetContext: Received state update:', state);
-      if (mounted && state.currentMeeting?.meetingId && state.currentMeeting?.meetingUrl) {
+      // Only update if the meeting data has actually changed
+      if (mounted && 
+          state.currentMeeting?.meetingId !== meetState.currentMeeting?.meetingId) {
         setMeetState(state);
       }
     });
+
     return () => {
       mounted = false;
       console.log('MeetContext: Cleaning up subscription');
       unsubscribe();
     };
-  }, []);
+  }, [meetState.currentMeeting?.meetingId]); // Add dependency
 
   const value = {
     ...meetState,

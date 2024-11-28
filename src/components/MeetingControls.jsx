@@ -1,5 +1,5 @@
 // src/components/MeetingControls.jsx
-import React, { useState, useContext } from 'react';
+import React, { useState, useContex, useCallback } from 'react';
 import { MeetContext } from '../context/MeetContext';
 import { useAuth } from '../context/AuthContext';
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
@@ -25,9 +25,12 @@ export const MeetingControls = () => {
     attendees: ''
   });
 
-  const handleCreateMeeting = async (e) => {
+  const handleCreateMeeting = useCallback(async (e) => {
     e.preventDefault();
+    if (isCreatingMeeting) return; // Prevent multiple submissions
+    
     try {
+      setIsCreatingMeeting(true);
       const attendeesList = newMeetingDetails.attendees
         .split(',')
         .map(email => email.trim())
@@ -38,11 +41,12 @@ export const MeetingControls = () => {
         attendees: attendeesList
       });
       
-      setIsCreatingMeeting(false);
     } catch (error) {
       console.error('Failed to create meeting:', error);
+    } finally {
+      setIsCreatingMeeting(false);
     }
-  };
+  }, [isCreatingMeeting, newMeetingDetails, createMeeting]);
 
   if (googleAuthStatus !== 'authorized') {
     return (

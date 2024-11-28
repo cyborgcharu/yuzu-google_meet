@@ -1,5 +1,7 @@
 // src/services/meetService.js
 class MeetService {
+  _isCreatingMeeting = false;
+
   constructor() {
     console.log('MeetService: Initializing with clean state');
     this.state = {
@@ -46,8 +48,16 @@ class MeetService {
   }
 
   async createMeeting(params) {
-    console.log('MeetService: Creating new meeting with params:', params);
+    // Prevent concurrent creation attempts
+    if (this._isCreatingMeeting) {
+      console.log('MeetService: Meeting creation already in progress');
+      return;
+    }
+
     try {
+      this._isCreatingMeeting = true;
+      console.log('MeetService: Creating new meeting with params:', params);
+      
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/calendar/create-meeting`, {
         method: 'POST',
         credentials: 'include',
@@ -73,6 +83,8 @@ class MeetService {
     } catch (error) {
       console.error('MeetService: Error creating meeting:', error);
       throw error;
+    } finally {
+      this._isCreatingMeeting = false;
     }
   }
 
