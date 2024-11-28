@@ -1,10 +1,11 @@
 // src/components/MeetingControls.jsx
 import React, { useState, useContext } from 'react';
 import { MeetContext } from '../context/MeetContext';
-import { Card } from './ui/card';
-import { Mic, Camera, Settings, Video, Plus, UserPlus } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
+import { Mic, Camera, Settings, PhoneOff, Plus } from 'lucide-react';
 
-export function MeetingControls({ interfaceType }) {
+export const MeetingControls = () => {
   const { 
     currentMeeting,
     isMuted,
@@ -15,10 +16,10 @@ export function MeetingControls({ interfaceType }) {
     toggleVideo,
     createMeeting
   } = useContext(MeetContext);
-
+  const { user } = useAuth();
   const [isCreatingMeeting, setIsCreatingMeeting] = useState(false);
   const [newMeetingDetails, setNewMeetingDetails] = useState({
-    title: '',
+    title: `${user?.name}'s Meeting`,
     startTime: new Date().toISOString().slice(0, 16),
     duration: 30,
     attendees: ''
@@ -59,7 +60,6 @@ export function MeetingControls({ interfaceType }) {
 
   return (
     <div className="space-y-4">
-      {/* Current Meeting Info */}
       {currentMeeting && (
         <Card className="p-4 bg-slate-800 text-white">
           <h3 className="text-lg font-semibold">{currentMeeting.title}</h3>
@@ -67,8 +67,8 @@ export function MeetingControls({ interfaceType }) {
             {new Date(currentMeeting.startTime).toLocaleString()}
           </p>
           <a 
-            href={currentMeeting.meetLink} 
-            target="_blank" 
+            href={currentMeeting.meetingUrl}
+            target="_blank"
             rel="noopener noreferrer"
             className="mt-2 inline-block px-4 py-2 bg-blue-500 rounded hover:bg-blue-600"
           >
@@ -77,18 +77,17 @@ export function MeetingControls({ interfaceType }) {
         </Card>
       )}
 
-      {/* Meeting Controls */}
       <Card className="p-4 bg-slate-800 text-white">
         <div className="flex justify-center space-x-4">
           <button 
-            onClick={() => toggleMute(interfaceType)}
+            onClick={() => toggleMute()}
             className={`p-3 rounded-full ${isMuted ? 'bg-red-500' : 'bg-slate-700'}`}
             disabled={isLoading}
           >
             <Mic className="w-6 h-6" />
           </button>
           <button 
-            onClick={() => toggleVideo(interfaceType)}
+            onClick={() => toggleVideo()}
             className={`p-3 rounded-full ${isVideoOff ? 'bg-red-500' : 'bg-slate-700'}`}
             disabled={isLoading}
           >
@@ -104,14 +103,31 @@ export function MeetingControls({ interfaceType }) {
         </div>
       </Card>
 
-      {/* Create Meeting Form */}
       {isCreatingMeeting && (
         <Card className="p-4 bg-slate-800 text-white">
           <form onSubmit={handleCreateMeeting} className="space-y-4">
-            {/* Form fields */}
+            <div>
+              <label htmlFor="title" className="block text-sm font-medium mb-1">
+                Meeting Title
+              </label>
+              <input
+                id="title"
+                type="text"
+                value={newMeetingDetails.title}
+                onChange={(e) => setNewMeetingDetails({ ...newMeetingDetails, title: e.target.value })}
+                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              />
+            </div>
+            {/* Add other form fields */}
+            <button
+              type="submit"
+              className="inline-flex justify-center rounded-md border border-transparent bg-indigo-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+            >
+              Create Meeting
+            </button>
           </form>
         </Card>
       )}
     </div>
   );
-}
+};

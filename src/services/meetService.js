@@ -1,185 +1,107 @@
+// src/services/meetService.js
 class MeetService {
   constructor() {
+    console.log('MeetService: Initializing with clean state');
+    localStorage.removeItem('currentMeeting'); // Clear any stored meeting
     this.state = {
       currentMeeting: null,
       isMuted: false,
       isVideoOff: false,
       participants: [],
-      connectedDevices: new Set()
+      connectedDevices: new Set(),
+      isConnecting: false,
+      error: null
     };
-    
-    this.subscribers = new Set();
+    this.subscribers = new Set(); // Initialize subscribers
     this._mediaStream = null;
-    this.channel = new BroadcastChannel('yuzu-meet');
-    this.channel.onmessage = (event) => {
-      switch (event.data.type) {
-        case 'VIDEO_TOGGLE': this._handleVideoToggle(event.data.isVideoOff); break;
-        case 'AUDIO_TOGGLE': this._handleAudioToggle(event.data.isMuted); break;
-        case 'END_MEETING': this._handleEndMeeting(); break;
-      }
+  }
+
+  subscribe(callback) {
+    console.log('MeetService: Adding subscriber');
+    this.subscribers.add(callback);
+    return () => {
+      console.log('MeetService: Removing subscriber');
+      this.subscribers.delete(callback);
     };
-  }
-
-  generateMeetCode() {
-    const chars = 'abcdefghijklmnopqrstuvwxyz';
-    const numbers = '0123456789';
-    const charset = chars + numbers;
-    
-    const part1 = Array(3).fill().map(() => chars[Math.floor(Math.random() * chars.length)]).join('');
-    const part2 = Array(4).fill().map(() => charset[Math.floor(Math.random() * charset.length)]).join('');
-    const part3 = Array(3).fill().map(() => charset[Math.floor(Math.random() * charset.length)]).join('');
-    
-    return `${part1}-${part2}-${part3}`;
-  }
-
-  _handleVideoToggle(isVideoOff) {
-    if (this._mediaStream) {
-      const videoTrack = this._mediaStream.getVideoTracks()[0];
-      if (videoTrack) {
-        videoTrack.enabled = !isVideoOff;
-        this.updateState({ isVideoOff });
-      }
-    }
-  }
-
-  _handleAudioToggle(isMuted) {
-    if (this._mediaStream) {
-      const audioTrack = this._mediaStream.getAudioTracks()[0];
-      if (audioTrack) {
-        audioTrack.enabled = !isMuted;
-        this.updateState({ isMuted });
-      }
-    }
-  }
-
-  _handleEndMeeting() {
-    this.cleanup();
   }
 
   async initializeMediaStream() {
+    console.log('MeetService: Starting media stream initialization');
     try {
       if (!this._mediaStream) {
+        console.log('MeetService: Requesting user media permissions');
         this._mediaStream = await navigator.mediaDevices.getUserMedia({
           audio: true,
-          video: true
+          video: {
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          }
         });
-        
-        const videoTrack = this._mediaStream.getVideoTracks()[0];
-        const audioTrack = this._mediaStream.getAudioTracks()[0];
-        
-        if (videoTrack) videoTrack.enabled = !this.state.isVideoOff;
-        if (audioTrack) audioTrack.enabled = !this.state.isMuted;
+        console.log('MeetService: Media stream obtained:', this._mediaStream.getTracks().map(t => t.kind));
       }
       return this._mediaStream;
     } catch (error) {
-      console.error('Error initializing media stream:', error);
+      console.error('MeetService: Failed to initialize media stream:', error);
       throw error;
     }
   }
 
-  toggleVideo = async (source) => {
+  async createMeeting(params) {
+    console.log('MeetService: Creating new meeting with params:', params);
     try {
-      await this.initializeMediaStream();
-      const newIsVideoOff = !this.state.isVideoOff;
-      
-      this.channel.postMessage({
-        type: 'VIDEO_TOGGLE',
-        isVideoOff: newIsVideoOff
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/calendar/create-meeting`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params)
       });
+  
+      if (response.status === 401) {
+        const data = await response.json();
+        if (data.redirectUrl) {
+          window.location.href = data.redirectUrl;
+          return;
+        }
+      }
+  
+      if (!response.ok) {
+        throw new Error('Failed to create meeting');
+      }
       
-      this._handleVideoToggle(newIsVideoOff);
-    } catch (error) {
-      console.error('Error toggling video:', error);
-    }
-  }
-
-  toggleMute = async (source) => {
-    try {
-      await this.initializeMediaStream();
-      const newIsMuted = !this.state.isMuted;
-      
-      this.channel.postMessage({
-        type: 'AUDIO_TOGGLE',
-        isMuted: newIsMuted
-      });
-      
-      this._handleAudioToggle(newIsMuted);
-    } catch (error) {
-      console.error('Error toggling audio:', error);
-    }
-  }
-
-  endMeeting = async () => {
-    try {
-      this.channel.postMessage({ type: 'END_MEETING' });
-      this._handleEndMeeting();
-    } catch (error) {
-      console.error('Error ending meeting:', error);
-    }
-  }
-
-  createMeeting(params) {
-    return fetch('http://localhost:3000/calendar/create-meeting', {
-      method: 'POST',
-      credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(params)
-    })
-    .then(response => {
-      if (!response.ok) throw new Error('Failed to create meeting');
-      return response.json();
-    })
-    .then(meeting => {
-      this.updateState({ currentMeeting: meeting });
-      localStorage.setItem('currentMeeting', JSON.stringify(meeting));
+      const meeting = await response.json();
+      this.setCurrentMeeting(meeting);
       return meeting;
-    })
-    .catch(error => {
-      console.error('Error creating meeting:', error);
+    } catch (error) {
+      console.error('MeetService: Error creating meeting:', error);
       throw error;
+    }
+  }
+
+  setCurrentMeeting(meeting) {
+    console.log('MeetService: Setting current meeting:', meeting);
+    this.updateState({
+      currentMeeting: meeting
     });
+    localStorage.setItem('currentMeeting', JSON.stringify(meeting));
   }
 
-  connectDevice = (deviceType) => {
-    this.state.connectedDevices.add(deviceType);
-    this.updateState({ connectedDevices: this.state.connectedDevices });
-  }
-
-  disconnectDevice = (deviceType) => {
-    this.state.connectedDevices.delete(deviceType);
-    this.updateState({ connectedDevices: this.state.connectedDevices });
-  }
-
-  updateState = (newState) => {
+  updateState(newState) {
+    console.log('MeetService: Updating state:', newState);
     this.state = { ...this.state, ...newState };
+    // Notify subscribers of state change
     this.subscribers.forEach(callback => callback(this.state));
   }
 
-  subscribe = (callback) => {
-    this.subscribers.add(callback);
-    callback(this.state);
-    return () => this.subscribers.delete(callback);
-  }
-
-  cleanup = () => {
+  cleanup() {
+    console.log('MeetService: Cleaning up');
     if (this._mediaStream) {
       this._mediaStream.getTracks().forEach(track => track.stop());
       this._mediaStream = null;
     }
-    this.channel.close();
     this.subscribers.clear();
     this.state.connectedDevices.clear();
-    localStorage.removeItem('currentMeeting');
-    this.updateState({
-      currentMeeting: null,
-      isMuted: false,
-      isVideoOff: false,
-      participants: []
-    });
   }
 }
 
 export const meetService = new MeetService();
-export const googleMeetService = meetService;
+export const googleMeetService = meetService; // Add this line for backward compatibility

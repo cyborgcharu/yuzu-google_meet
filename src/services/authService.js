@@ -1,60 +1,55 @@
 // src/services/authService.js
 class AuthService {
   constructor() {
-    this.baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+    this.subscribers = [];
+    this.user = null;
   }
 
-  async getUser() {
-    try {
-      const response = await fetch(`${this.baseUrl}/auth/user`, {
-        credentials: 'include',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        }
-      });
-
-      if (response.status === 401) {
-        return null;
-      }
-
-      if (!response.ok) {
-        throw new Error(`Failed to get user: ${response.statusText}`);
-      }
-
-      const userData = await response.json();
-      console.log('User data received:', userData);
-      return userData; // This should be the user object directly now
-    } catch (error) {
-      console.error('Error getting user:', error);
-      return null;
-    }
+  // Add subscriber
+  subscribe(callback) {
+    this.subscribers.push(callback);
+    // Return unsubscribe function
+    return () => {
+      this.subscribers = this.subscribers.filter(sub => sub !== callback);
+    };
   }
 
-  
-  login() {
-    // Redirect to Google OAuth
-    window.location.href = `${this.baseUrl}/auth/google`;
+  // Notify all subscribers
+  notify() {
+    this.subscribers.forEach(callback => callback(this.user));
+  }
+
+  // Get current user
+  getUser() {
+    return this.user;
+  }
+
+  // Set user and notify subscribers
+  setUser(user) {
+    this.user = user;
+    this.notify();
+  }
+
+  // Clear user data
+  clearUser() {
+    this.user = null;
+    this.notify();
+  }
+
+  // Check if user is authenticated
+  isAuthenticated() {
+    return !!this.user;
   }
 
   async logout() {
     try {
-      const response = await fetch(`${this.baseUrl}/auth/logout`, {
+      await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/logout`, {
         method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        }
+        credentials: 'include'
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to logout');
-      }
-
-      return await response.json();
+      this.clearUser();
     } catch (error) {
-      console.error('Error logging out:', error);
+      console.error('Logout error:', error);
       throw error;
     }
   }

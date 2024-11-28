@@ -1,6 +1,6 @@
 // src/hooks/useMeet.js
 import { useState, useCallback } from 'react';
-import { googleMeetService } from '../services/meetService';
+import { meetService } from '../services/meetService';
 
 export const useMeet = () => {
   const [loading, setLoading] = useState(false);

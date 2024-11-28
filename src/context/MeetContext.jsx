@@ -1,62 +1,55 @@
+// src/context/MeetContext.jsx
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { googleMeetService } from '../services/meetService';
+import { meetService } from '../services/meetService';
 
-export const MeetContext = createContext(null);
+export const MeetContext = createContext(null);  // Create the context
 
 export function MeetProvider({ children }) {
+  console.log('MeetContext: Provider initializing');
   const [meetState, setMeetState] = useState(() => {
-    // Check localStorage for existing meeting
+    console.log('MeetContext: Initializing state');
+    localStorage.removeItem('currentMeeting'); 
+    
     const savedMeeting = localStorage.getItem('currentMeeting');
     if (savedMeeting) {
-      googleMeetService.state.currentMeeting = JSON.parse(savedMeeting);
+      console.log('MeetContext: Found saved meeting:', savedMeeting);
+      const meeting = JSON.parse(savedMeeting);
+      if (meeting.meetingId && meeting.meetingUrl) {
+        meetService.state.currentMeeting = meeting;
+        return meetService.state;
+      }
     }
-    return googleMeetService.state;
+    return {
+      ...meetService.state,
+      currentMeeting: null
+    };
   });
 
   useEffect(() => {
-    const unsubscribe = googleMeetService.subscribe(state => {
-      setMeetState(state);
-      console.log('Meet state updated:', state);
-    });
-
-    const path = window.location.pathname;
-    const interfaceType = path.split('/')[1] || 'web';
-    googleMeetService.connectDevice(interfaceType);
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        googleMeetService.connectDevice(interfaceType);
-      } else {
-        googleMeetService.disconnectDevice(interfaceType);
+    console.log('MeetContext: Setting up subscription');
+    const unsubscribe = meetService.subscribe(state => {
+      console.log('MeetContext: Received state update:', state);
+      if (!state.currentMeeting || 
+          (state.currentMeeting.meetingId && state.currentMeeting.meetingUrl)) {
+        setMeetState(state);
       }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
+    });
     return () => {
+      console.log('MeetContext: Cleaning up subscription');
       unsubscribe();
-      googleMeetService.disconnectDevice(interfaceType);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
 
-  // Save meeting to localStorage when it changes
-  useEffect(() => {
-    if (meetState.currentMeeting) {
-      localStorage.setItem('currentMeeting', JSON.stringify(meetState.currentMeeting));
-    }
-  }, [meetState.currentMeeting]);
-
-  const value = React.useMemo(() => ({
+  const value = {
     ...meetState,
-    createMeeting: (params) => googleMeetService.createMeeting(params),
-    toggleMute: (source) => googleMeetService.toggleMute(source),
-    toggleVideo: (source) => googleMeetService.toggleVideo(source),
-    connectDevice: (deviceType) => googleMeetService.connectDevice(deviceType),
-    disconnectDevice: (deviceType) => googleMeetService.disconnectDevice(deviceType),
-    setCurrentMeeting: (meeting) => googleMeetService.setCurrentMeeting(meeting),
-    updateParticipants: (participants) => googleMeetService.updateParticipants(participants)
-  }), [meetState]);
+    createMeeting: (params) => meetService.createMeeting(params),
+    toggleMute: () => meetService.toggleMute(),
+    toggleVideo: () => meetService.toggleVideo(),
+    connectDevice: (deviceType) => meetService.connectDevice(deviceType),
+    disconnectDevice: (deviceType) => meetService.disconnectDevice(deviceType),
+    setCurrentMeeting: (meeting) => meetService.setCurrentMeeting(meeting),
+    updateParticipants: (participants) => meetService.updateParticipants(participants)
+  };
 
   return (
     <MeetContext.Provider value={value}>

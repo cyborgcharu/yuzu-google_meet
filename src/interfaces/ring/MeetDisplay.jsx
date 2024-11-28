@@ -5,7 +5,7 @@ import { Mic, Camera, Settings, PhoneOff } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { MeetContext } from '@/context/MeetContext';
 import { useNavigate } from 'react-router-dom';
-import { googleMeetService } from '@/services/meetService';
+import { meetService } from '@/services/meetService';
 
 export const RingMeetDisplay = () => {
   const { user } = useAuth();
@@ -38,7 +38,7 @@ export const RingMeetDisplay = () => {
           });
         }
     
-        const mediaStream = await googleMeetService.initializeMediaStream();
+        const mediaStream = await meetService.initializeMediaStream();
         if (mounted && videoRef.current) {
           videoRef.current.srcObject = mediaStream;
         }
@@ -70,7 +70,7 @@ export const RingMeetDisplay = () => {
     e.preventDefault();
     try {
       await endMeeting();
-      googleMeetService.stopMediaStream();
+      meetService.stopMediaStream();
       navigate('/');
     } catch (err) {
       console.error('Failed to end meeting:', err);

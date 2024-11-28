@@ -1,4 +1,5 @@
 // src/App.jsx
+console.log('App component loaded');
 import React, { useEffect } from 'react';
 import { 
   BrowserRouter, 
