@@ -1,9 +1,8 @@
 // src/services/meetService.js
 class MeetService {
-  _isCreatingMeeting = false;
-
   constructor() {
     console.log('MeetService: Initializing with clean state');
+    this._isCreatingMeeting = false;
     this.state = {
       currentMeeting: null,
       isMuted: false,
@@ -48,7 +47,6 @@ class MeetService {
   }
 
   async createMeeting(params) {
-    // Prevent concurrent creation attempts
     if (this._isCreatingMeeting) {
       console.log('MeetService: Meeting creation already in progress');
       return;
@@ -89,21 +87,25 @@ class MeetService {
   }
 
   setCurrentMeeting(meeting) {
-    // Add check to prevent duplicate updates
     if (this.state.currentMeeting?.meetingId === meeting?.meetingId) {
       return;
     }
     console.log('MeetService: Setting current meeting:', meeting);
+    
     this.updateState({
       currentMeeting: meeting
     });
+    
     localStorage.setItem('currentMeeting', JSON.stringify(meeting));
+    
+    if (meeting?.meetingUrl) {
+      window.open(meeting.meetingUrl, '_blank');
+    }
   }
 
   updateState(newState) {
     console.log('MeetService: Updating state:', newState);
     this.state = { ...this.state, ...newState };
-    // Notify subscribers of state change
     this.subscribers.forEach(callback => callback(this.state));
   }
 
@@ -119,4 +121,4 @@ class MeetService {
 }
 
 export const meetService = new MeetService();
-export const googleMeetService = meetService; // Add this line for backward compatibility
+export const googleMeetService = meetService;
