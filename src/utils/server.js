@@ -9,7 +9,6 @@ import calendarRouter from '../server/routes/calendar.js';
 
 // Load environment variables
 dotenv.config();
-console.log("hallelujah")
 
 // Validate required environment variables
 const requiredEnvVars = ['VITE_GOOGLE_CLIENT_ID', 'VITE_GOOGLE_CLIENT_SECRET', 'SESSION_SECRET'];
