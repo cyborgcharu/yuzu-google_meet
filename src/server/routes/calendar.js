@@ -126,4 +126,42 @@ router.post('/create-meeting', async (req, res) => {
   }
 });
 
+router.post('/join-meeting', async (req, res) => {
+  try {
+      const { meetingId, deviceType } = req.body;
+      
+      // Get user's OAuth tokens from session
+      const { tokens } = req.session;
+      
+      if (!tokens) {
+          return res.status(401).json({ error: 'Not authenticated' });
+      }
+
+      // Set up OAuth client
+      const oauth2Client = new google.auth.OAuth2();
+      oauth2Client.setCredentials(tokens);
+
+      // Create Meet API client
+      const meet = google.meet({
+          version: 'v1',
+          auth: oauth2Client
+      });
+
+      // Join the meeting
+      await meet.spaces.participants.create({
+          name: `spaces/${meetingId}/participants`,
+          requestBody: {
+              deviceType: deviceType.toUpperCase(),
+              autoAcceptCamera: true,
+              autoAcceptMicrophone: true
+          }
+      });
+
+      res.json({ success: true });
+  } catch (error) {
+      console.error('Failed to join meeting:', error);
+      res.status(500).json({ error: 'Failed to join meeting' });
+  }
+});
+
 export default router;

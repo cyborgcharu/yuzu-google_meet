@@ -157,12 +157,24 @@ class YuzuMeetService {
         try {
             await this.initializeMediaStream();
             this.updateState({ isConnecting: true, error: null });
-            this.socket?.emit('joinMeeting', {
-                meetingId,
-                deviceType: this.state.deviceType,
-                meetingUrl: this.state.currentMeeting?.meetingUrl,
-                googleMeetId: this.state.currentMeeting?.meetingId 
+            
+            // First join the meeting via Google Meet API
+            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/calendar/join-meeting`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    meetingId,
+                    deviceType: this.state.deviceType,
+                    meetingUrl: this.state.currentMeeting?.meetingUrl
+                })
             });
+    
+            if (!response.ok) {
+                throw new Error('Failed to join Google Meet session');
+            }
+    
+            // Then emit socket event for our own tracking
             this.socket?.emit('joinMeeting', {
                 meetingId,
                 deviceType: this.state.deviceType,

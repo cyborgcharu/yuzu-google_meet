@@ -120,6 +120,8 @@ app.get('/auth/google/login', (req, res) => {
       'https://www.googleapis.com/auth/userinfo.email',
       'https://www.googleapis.com/auth/calendar',
       'https://www.googleapis.com/auth/calendar.events',
+      'https://www.googleapis.com/auth/meetings.space.created',
+      'https://www.googleapis.com/auth/meetings.space.readonly'
     ],
   });
   console.log('Generated auth URL:', authUrl);
