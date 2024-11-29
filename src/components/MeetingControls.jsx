@@ -17,6 +17,8 @@ export const MeetingControls = () => {
   } = useContext(MeetContext);
 
   const { user, isAuthenticated } = useAuth(); // Now correctly destructuring both properties
+  const [error, setError] = useState(null);
+
 
   const [isCreatingMeeting, setIsCreatingMeeting] = useState(false);
   const [newMeetingDetails, setNewMeetingDetails] = useState({
@@ -28,19 +30,28 @@ export const MeetingControls = () => {
 
   const handleCreateMeeting = useCallback(async (e) => {
     e.preventDefault();
-    if (isCreatingMeeting) return; // Prevent multiple submissions
+    console.log('Creating meeting...'); // Debug log
+    
+    if (isCreatingMeeting) {
+      console.log('Already creating meeting, preventing duplicate submission');
+      return;
+    }
     
     try {
       setIsCreatingMeeting(true);
+      console.log('Meeting details:', newMeetingDetails); // Debug log
+      
       const attendeesList = newMeetingDetails.attendees
         .split(',')
         .map(email => email.trim())
         .filter(Boolean);
-
-      await createMeeting({
+  
+      const result = await createMeeting({
         ...newMeetingDetails,
         attendees: attendeesList
       });
+      
+      console.log('Meeting created:', result); // Debug log
       
     } catch (error) {
       console.error('Failed to create meeting:', error);
@@ -110,7 +121,7 @@ export const MeetingControls = () => {
 
       {isCreatingMeeting && (
         <Card className="p-4 bg-slate-800 text-white">
-          <form onSubmit={handleCreateMeeting} className="space-y-4">
+          <form onSubmit={handleCreateMeeting} className="space-y-4">  // Make sure this is connected
             <div>
               <label htmlFor="title" className="block text-sm font-medium mb-1">
                 Meeting Title
@@ -123,7 +134,6 @@ export const MeetingControls = () => {
                 className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm text-black bg-white"
               />
             </div>
-            {/* Add other form fields */}
             <button
               type="submit"
               className="inline-flex justify-center rounded-md border border-transparent bg-indigo-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"

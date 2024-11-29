@@ -100,14 +100,33 @@ class YuzuMeetService {
 
   async createMeeting(params) {
     try {
-      this.socket.emit('createMeeting', params);
-      return new Promise((resolve, reject) => {
-        this.socket.once('meetingCreated', (meeting) => {
-          this.setCurrentMeeting(meeting);
-          resolve(meeting);
-        });
-        this.socket.once('error', reject);
+      console.log('YuzuMeet: Creating meeting with params:', params);
+      
+      // First create the meeting via Calendar API
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/calendar/create-meeting`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(params)
       });
+  
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to create meeting');
+      }
+  
+      const meeting = await response.json();
+      console.log('YuzuMeet: Meeting created:', meeting);
+  
+      // Now notify other devices via socket
+      this.socket.emit('meetingCreated', meeting);
+      
+      // Update local state
+      this.setCurrentMeeting(meeting);
+      
+      return meeting;
     } catch (error) {
       console.error('YuzuMeet: Error creating meeting:', error);
       throw error;
