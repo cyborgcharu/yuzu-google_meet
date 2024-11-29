@@ -33,9 +33,9 @@ export const MeetingControls = () => {
     if (isCreating) return;
     
     try {
+      console.log('Attempting to create meeting with details:', newMeetingDetails);
       setError(null);
       setIsCreating(true);
-      console.log('Creating meeting with details:', newMeetingDetails);
       
       const startTime = new Date(newMeetingDetails.startTime).toISOString();
       const endTime = new Date(new Date(newMeetingDetails.startTime).getTime() + (newMeetingDetails.duration * 60000)).toISOString();
@@ -109,7 +109,10 @@ export const MeetingControls = () => {
             <Camera className="w-6 h-6" />
           </button>
           <button 
-            onClick={() => setIsCreatingMeeting(true)}
+            onClick={() => {
+              console.log('Create Meeting button clicked');
+              setIsCreatingMeeting(true);
+            }}
             className="p-3 rounded-full bg-green-600 hover:bg-green-700"
             disabled={isLoading}
           >
@@ -130,7 +133,10 @@ export const MeetingControls = () => {
                 id="title"
                 type="text"
                 value={newMeetingDetails.title}
-                onChange={(e) => setNewMeetingDetails({ ...newMeetingDetails, title: e.target.value })}
+                onChange={(e) => {
+                  console.log('Title field changed:', e.target.value);
+                  setNewMeetingDetails({ ...newMeetingDetails, title: e.target.value });
+                }}
                 className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm text-black bg-white"
               />
             </div>
@@ -144,7 +150,10 @@ export const MeetingControls = () => {
                 id="startTime"
                 type="datetime-local"
                 value={newMeetingDetails.startTime}
-                onChange={(e) => setNewMeetingDetails({ ...newMeetingDetails, startTime: e.target.value })}
+                onChange={(e) => {
+                  console.log('Start Time field changed:', e.target.value);
+                  setNewMeetingDetails({ ...newMeetingDetails, startTime: e.target.value });
+                }}
                 className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm text-black bg-white"
               />
             </div>
@@ -160,7 +169,10 @@ export const MeetingControls = () => {
                 min="15"
                 max="240"
                 value={newMeetingDetails.duration}
-                onChange={(e) => setNewMeetingDetails({ ...newMeetingDetails, duration: parseInt(e.target.value) })}
+                onChange={(e) => {
+                  console.log('Duration field changed:', e.target.value);
+                  setNewMeetingDetails({ ...newMeetingDetails, duration: parseInt(e.target.value) });
+                }}
                 className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm text-black bg-white"
               />
             </div>
@@ -174,7 +186,10 @@ export const MeetingControls = () => {
                 id="attendees"
                 type="text"
                 value={newMeetingDetails.attendees}
-                onChange={(e) => setNewMeetingDetails({ ...newMeetingDetails, attendees: e.target.value })}
+                onChange={(e) => {
+                  console.log('Attendees field changed:', e.target.value);
+                  setNewMeetingDetails({ ...newMeetingDetails, attendees: e.target.value });
+                }}
                 placeholder="email1@example.com, email2@example.com"
                 className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm text-black bg-white"
               />

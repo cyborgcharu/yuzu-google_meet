@@ -1,62 +1,47 @@
 // src/context/MeetContext.jsx
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { yuzuMeetService } from '../services/yuzuMeetService';
+import { meetService } from '../services/meetService';
 
-export const MeetContext = createContext(null);
+export const MeetContext = createContext(null);  // Create the context
 
-export function MeetProvider({ children, deviceType = 'glasses' }) {
-  console.log('MeetContext: Provider initializing for device:', deviceType);
+export function MeetProvider({ children }) {
   const [meetState, setMeetState] = useState(() => {
     console.log('MeetContext: Initializing state');
-    return yuzuMeetService.state;
+    return meetService.state;
   });
-
-  useEffect(() => {
-    console.log('MeetContext: Initializing YuzuMeetService');
-    yuzuMeetService.initialize(deviceType).catch(console.error);
-  }, [deviceType]);
 
   useEffect(() => {
     console.log('MeetContext: Setting up subscription');
     let mounted = true;
-    const unsubscribe = yuzuMeetService.subscribe(state => {
+    
+    const unsubscribe = meetService.subscribe(state => {
       console.log('MeetContext: Received state update:', state);
-      if (mounted) {
+      // Only update if the meeting data has actually changed
+      if (mounted && 
+          state.currentMeeting?.meetingId !== meetState.currentMeeting?.meetingId) {
         setMeetState(state);
       }
     });
-    
+
     return () => {
       mounted = false;
       console.log('MeetContext: Cleaning up subscription');
       unsubscribe();
     };
-  }, []);
+  }, [meetState.currentMeeting?.meetingId]); // Add dependency
 
-  // Create a value object with device-specific methods
   const value = {
     ...meetState,
-    deviceType,
-    createMeeting: (params) => yuzuMeetService.createMeeting(params),
-    joinMeeting: (meetingId) => yuzuMeetService.joinMeeting(meetingId),
-    toggleMute: () => yuzuMeetService.toggleMute(),
-    toggleVideo: () => yuzuMeetService.toggleVideo(),
-    
-    // Device-specific actions
-    ...(deviceType === 'glasses' && {
-      updateParticipantLayout: (layout) => yuzuMeetService.updateGlassesLayout(layout),
-      adjustBrightness: (level) => yuzuMeetService.adjustGlassesBrightness(level)
-    }),
-    
-    ...(deviceType === 'ring' && {
-      registerGesture: (gesture) => yuzuMeetService.registerRingGesture(gesture),
-      calibrate: () => yuzuMeetService.calibrateRing()
-    }),
-    
-    ...(deviceType === 'watch' && {
-      updateNotificationPreferences: (prefs) => yuzuMeetService.updateWatchNotifications(prefs),
-      vibrate: (pattern) => yuzuMeetService.vibrateWatch(pattern)
-    })
+    createMeeting: (params) => meetService.createMeeting(params),
+    toggleMute: () => meetService.toggleMute(),
+    toggleVideo: () => meetService.toggleVideo(),
+    connectDevice: (deviceType) => meetService.connectDevice(deviceType),
+    disconnectDevice: (deviceType) => meetService.disconnectDevice(deviceType),
+    setCurrentMeeting: (meeting) => meetService.setCurrentMeeting(meeting),
+    updateParticipants: (participants) => meetService.updateParticipants(participants),
+    updateGlassesLayout: (participants) => meetService.updateGlassesLayout(participants),
+    updateRingLayout: (participants) => meetService.updateRingLayout(participants),
+    updateWatchLayout: (participants) => meetService.updateWatchLayout(participants)
   };
 
   return (

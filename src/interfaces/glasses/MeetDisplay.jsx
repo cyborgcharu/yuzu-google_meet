@@ -1,11 +1,10 @@
 // src/interfaces/glasses/MeetDisplay.jsx
-import React, { useEffect } from 'react';
-import { useMeet } from '../../context/MeetContext';
+import React, { useEffect, useContext } from 'react';
+import { MeetContext } from '../../context/MeetContext';
 import { Card } from '../../components/ui/card';
 import { StatusIndicators } from '../../components/StatusIndicators';
 import { VideoFeed } from '../../components/VideoFeed';
-import { MeetingControls } from '../../components/MeetingControls'; 
-
+import { MeetingControls } from '../../components/MeetingControls';
 
 export const GlassesMeetDisplay = () => {
   const {
@@ -17,18 +16,18 @@ export const GlassesMeetDisplay = () => {
     error,
     toggleMute,
     toggleVideo,
-    updateParticipantLayout,
-    adjustBrightness
-  } = useMeet();
+    updateGlassesLayout,
+    adjustBrightness,
+  } = useContext(MeetContext);
 
   useEffect(() => {
     // Initialize glasses-specific features
     if (!currentMeeting) return;
-    
+
     // Set default layout and brightness
-    updateParticipantLayout('grid');
+    updateGlassesLayout(participants);
     adjustBrightness(0.8);
-  }, [currentMeeting]);
+  }, [currentMeeting, participants, updateGlassesLayout, adjustBrightness]);
 
   if (error) {
     return (
@@ -51,12 +50,12 @@ export const GlassesMeetDisplay = () => {
 
   return (
     <div className="h-screen flex flex-col">
-      <StatusIndicators 
+      <StatusIndicators
         isMuted={isMuted}
         isVideoOff={isVideoOff}
         participants={participants}
       />
-      
+
       <div className="flex-1">
         <VideoFeed
           participants={participants}
