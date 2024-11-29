@@ -5,7 +5,7 @@ import { Mic, Camera, Settings, PhoneOff } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { MeetContext } from '@/context/MeetContext';
 import { useNavigate } from 'react-router-dom';
-import { meetService } from '@/services/meetService';
+import { yuzuMeetService } from '../../services/yuzuMeetService';
 
 export const WristMeetDisplay = () => {
   const { user } = useAuth();

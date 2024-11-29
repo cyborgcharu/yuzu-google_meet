@@ -1,11 +1,12 @@
 // src/interfaces/glasses/MeetDisplay.jsx
-import React, { useEffect, useContext } from 'react';
-import { MeetContext } from '../../context/MeetContext';
+import React, { useState, useEffect } from 'react';
+import { useMeet } from '../../context/MeetContext';
 import { Card } from '../../components/ui/card';
 import { StatusIndicators } from '../../components/StatusIndicators';
 import { VideoFeed } from '../../components/VideoFeed';
+import { MeetingPanel } from '../../components/MeetingPanel';
 import { MeetingControls } from '../../components/MeetingControls';
-import { Mic, Camera, Phone } from 'lucide-react';
+import { Mic, Camera, Plus } from 'lucide-react';
 
 export const GlassesMeetDisplay = () => {
  const {
@@ -19,7 +20,9 @@ export const GlassesMeetDisplay = () => {
    toggleVideo,
    updateGlassesLayout,
    adjustBrightness,
- } = useContext(MeetContext);
+ } = useMeet();
+
+ const [showCreatePanel, setShowCreatePanel] = useState(false);
 
  useEffect(() => {
    if (!currentMeeting) return;
@@ -37,11 +40,34 @@ export const GlassesMeetDisplay = () => {
 
  if (!currentMeeting) {
    return (
-     <div className="p-4 space-y-4 bg-black text-white">
-       <Card className="p-4 bg-gray-900">
-         <p className="text-lg">No active meeting</p>
-       </Card>
-       <MeetingControls />
+     <div className="min-h-screen bg-black text-white p-4">
+       <button
+         onClick={() => setShowCreatePanel(true)}
+         className="mb-4 bg-blue-500 hover:bg-blue-600 p-3 rounded-full"
+       >
+         <Plus className="w-6 h-6" />
+       </button>
+       
+       {showCreatePanel && (
+         <MeetingPanel onClose={() => setShowCreatePanel(false)} />
+       )}
+       
+       <div className="fixed bottom-6 left-1/2 -translate-x-1/2">
+         <div className="flex gap-4 bg-gray-900 p-4 rounded-full shadow-lg">
+           <button
+             onClick={toggleMute}
+             className={`p-4 rounded-full ${isMuted ? 'bg-red-500' : 'bg-blue-500'}`}
+           >
+             <Mic className="w-6 h-6 text-white" />
+           </button>
+           <button
+             onClick={toggleVideo}
+             className={`p-4 rounded-full ${isVideoOff ? 'bg-red-500' : 'bg-blue-500'}`}
+           >
+             <Camera className="w-6 h-6 text-white" />
+           </button>
+         </div>
+       </div>
      </div>
    );
  }
@@ -91,21 +117,17 @@ export const GlassesMeetDisplay = () => {
 
        <footer className="fixed bottom-6 left-1/2 -translate-x-1/2">
          <div className="flex gap-4 bg-gray-900 p-4 rounded-full shadow-lg">
-           <MeetingControls />
            <button
              onClick={toggleMute}
              className={`p-4 rounded-full ${isMuted ? 'bg-red-500' : 'bg-blue-500'}`}
            >
-             <Mic className="text-white" />
+             <Mic className="w-6 h-6 text-white" />
            </button>
            <button
-             onClick={toggleVideo} 
+             onClick={toggleVideo}
              className={`p-4 rounded-full ${isVideoOff ? 'bg-red-500' : 'bg-blue-500'}`}
            >
-             <Camera className="text-white" />
-           </button>
-           <button className="p-4 rounded-full bg-red-500">
-             <Phone className="text-white" />
+             <Camera className="w-6 h-6 text-white" />
            </button>
          </div>
        </footer>

@@ -1,6 +1,6 @@
 // src/hooks/useMeet.js
 import { useState, useCallback, useEffect } from 'react';
-import { meetService } from '../services/meetService';
+import { yuzuMeetService } from '../services/yuzuMeetService';
 
 export const useMeet = () => {
   const [loading, setLoading] = useState(false);

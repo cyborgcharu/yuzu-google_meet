@@ -4,6 +4,7 @@ import io from 'socket.io-client';
 class YuzuMeetService {
   constructor() {
     this.socket = null;
+    this._mediaStream = null;
     this.state = {
       currentMeeting: null,
       deviceType: null,
@@ -21,6 +22,23 @@ class YuzuMeetService {
   async initialize(deviceType) {
     this.state.deviceType = deviceType;
     await this.connectSocket();
+  }
+
+  async initializeMediaStream() {
+    try {
+      this._mediaStream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: {
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        }
+      });
+      this.localStream = this._mediaStream;
+      return this._mediaStream;
+    } catch (error) {
+      console.error('Failed to get media stream:', error);
+      throw error;
+    }
   }
 
   async connectSocket() {
@@ -206,7 +224,17 @@ class YuzuMeetService {
   }
 
   async toggleVideo() {
-    this.socket.emit('toggleVideo');
+    if (!this._mediaStream) {
+      await this.initializeMediaStream();
+    }
+    
+    const videoTracks = this._mediaStream.getVideoTracks();
+    videoTracks.forEach(track => {
+      track.enabled = !track.enabled;
+    });
+    
+    this.socket?.emit('toggleVideo');
+    this.updateState({ isVideoOff: !this.state.isVideoOff });
   }
 
   cleanup() {
