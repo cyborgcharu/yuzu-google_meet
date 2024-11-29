@@ -1,4 +1,9 @@
 // src/components/MeetingPanel.jsx
+import React, { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { useMeet } from '../context/MeetContext';
+import { Card } from './ui/card';
+
 export const MeetingPanel = () => {
     const { user, isAuthenticated } = useAuth();
     const { createMeeting } = useMeet();

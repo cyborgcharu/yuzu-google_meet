@@ -1,91 +1,76 @@
 // src/components/VideoFeed.jsx
-import React, { useEffect, useRef } from 'react';
-import { useMeet } from '../hooks/useMeet';
+import React, { useEffect, useRef, useState } from 'react';
+import { useMeet } from '../context/MeetContext';
+import { Card } from './ui/card';
 
-export const VideoFeed = () => {
+class VideoErrorBoundary extends React.Component {
+  state = { error: null };
+  
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
+  
+  render() {
+    if (this.state.error) {
+      return <Card className="bg-red-50 p-4">{this.state.error.message}</Card>;
+    }
+    return this.props.children;
+  }
+}
+
+export const VideoFeed = ({ compact = false, minimal = false }) => {
   const {
-    currentMeeting,
-    deviceType,
-    participants,
-    localStream,
-    remoteStreams,
+    mediaStream,
+    isMuted,
+    isVideoOff
   } = useMeet();
+
   const localVideoRef = useRef(null);
-  const remoteVideoRefs = useRef(new Map());
+  const [videoError, setVideoError] = useState(null);
 
   useEffect(() => {
-    if (localStream && localVideoRef.current) {
-      localVideoRef.current.srcObject = localStream;
-    }
-  }, [localStream]);
-
-  useEffect(() => {
-    remoteStreams.forEach((stream, participantId) => {
-      const videoRef = remoteVideoRefs.current.get(participantId);
-      if (videoRef && videoRef.srcObject !== stream) {
-        videoRef.srcObject = stream;
-      }
+    console.log('[VideoFeed] Mount', {
+      hasStream: !!mediaStream,
+      tracks: mediaStream?.getTracks().map(t => t.kind),
+      videoRef: localVideoRef.current
     });
-  }, [remoteStreams]);
 
-  const ParticipantVideo = ({ participant }) => {
-    if (!remoteVideoRefs.current.has(participant.id)) {
-      remoteVideoRefs.current.set(participant.id, React.createRef());
+    try {
+      if (mediaStream && localVideoRef.current) {
+        localVideoRef.current.srcObject = mediaStream;
+        localVideoRef.current.onloadedmetadata = () => {
+          console.log('[VideoFeed] Video metadata loaded');
+          localVideoRef.current.play().catch(console.error);
+        };
+        localVideoRef.current.onerror = (e) => {
+          console.error('[VideoFeed] Video error:', e);
+          setVideoError(e);
+        };
+      }
+    } catch (err) {
+      console.error('[VideoFeed] Setup error:', err);
+      setVideoError(err);
     }
 
-    return (
-      <div className="relative rounded-lg overflow-hidden">
-        <video
-          ref={remoteVideoRefs.current.get(participant.id)}
-          autoPlay
-          playsInline
-          className="w-full h-full object-cover"
-        />
-        <div className="absolute bottom-2 left-2 bg-black/50 px-2 py-1 rounded text-white text-sm">
-          {participant.name}
-        </div>
-      </div>
-    );
-  };
+    return () => {
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = null;
+      }
+    };
+  }, [mediaStream]);
 
   return (
-    <div className="fixed inset-0 bg-black p-4 flex flex-col gap-4">
-      <div className="flex gap-4 grow">
-        <div className="relative rounded-lg overflow-hidden grow">
-          <video
-            ref={localVideoRef}
-            autoPlay
-            playsInline
-            muted
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute bottom-2 left-2 bg-black/50 px-2 py-1 rounded text-white text-sm">
-            You
-          </div>
-        </div>
-        {participants && participants.length > 0 ? (
-          participants.map((participant) => (
-            <ParticipantVideo key={participant.id} participant={participant} />
-          ))
-        ) : (
-          <div className="flex items-center justify-center grow text-white text-lg">
-            No participants available
-          </div>
-        )}
+    <VideoErrorBoundary>
+      <div className="min-h-screen bg-black">
+        <video
+          ref={localVideoRef}
+          autoPlay
+          playsInline
+          muted
+          className={`w-full h-full object-cover ${isVideoOff ? 'hidden' : ''}`}
+        />
+        {videoError && <div className="text-red-500">Error: {videoError.message}</div>}
       </div>
-
-      {deviceType === 'glasses' && (
-        <div className="self-end space-x-2">
-          <button className="px-3 py-1 rounded bg-gray-500 text-white">
-            Grid
-          </button>
-          <button className="px-3 py-1 rounded bg-gray-500 text-white">
-            Spotlight
-          </button>
-        </div>
-      )}
-    </div>
+    </VideoErrorBoundary>
   );
 };
-
-export default VideoFeed;

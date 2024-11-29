@@ -2,247 +2,212 @@
 import io from 'socket.io-client';
 
 class YuzuMeetService {
-  constructor() {
-    this.socket = null;
-    this._mediaStream = null;
-    this.state = {
-      currentMeeting: null,
-      deviceType: null,
-      isMuted: false,
-      isVideoOff: false,
-      participants: [],
-      connectedDevices: new Set(),
-      isConnecting: false,
-      error: null,
-    };
-    this.subscribers = new Set();
-    this.connectSocket();
-  }
+    constructor() {
+        this.socket = null;
+        this._mediaStream = null;
+        this.state = {
+            currentMeeting: null,
+            deviceType: 'glasses',
+            isMuted: false,
+            isVideoOff: false,
+            participants: [],
+            connectedDevices: new Set(),
+            isConnecting: false,
+            error: null,
+            brightness: 0.8,
+            mediaStream: null,
+            localStream: null,
+            remoteStreams: new Map()
+        };
+        this.subscribers = new Set();
+        this.connectSocket();
+    }
 
-  async initialize(deviceType) {
-    this.state.deviceType = deviceType;
-    await this.connectSocket();
-  }
-
-  async initializeMediaStream() {
-    try {
-      this._mediaStream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
-        video: {
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
+    async connectSocket() {
+        try {
+            this.socket = io(import.meta.env.VITE_SOCKET_URL, {
+                auth: { deviceType: this.state.deviceType }
+            });
+            this.setupSocketListeners();
+        } catch (error) {
+            this.updateState({ error: 'Socket connection failed' });
+            throw error;
         }
-      });
-      this.localStream = this._mediaStream;
-      return this._mediaStream;
-    } catch (error) {
-      console.error('Failed to get media stream:', error);
-      throw error;
     }
-  }
 
-  async connectSocket() {
-    try {
-      this.socket = io(`${import.meta.env.VITE_SOCKET_URL}`, {
-        auth: { deviceType: this.state.deviceType },
-        autoConnect: true // Ensure auto-connection
-      });
-
-      this.setupSocketListeners();
-    } catch (error) {
-      console.error('YuzuMeet: Socket connection failed:', error);
-      this.updateState({ error: 'Failed to connect to the server' });
-    }
-  }
-
-  setupSocketListeners() {
-    this.socket.on('connect', () => {
-      console.log('YuzuMeet: Socket connected');
-    });
-
-    this.socket.on('stateUpdate', (newState) => {
-      this.updateState(newState);
-    });
-
-    this.socket.on('meetingJoined', (meetingData) => {
-      this.updateState({
-        currentMeeting: meetingData,
-        isConnecting: false,
-      });
-    });
-
-    this.socket.on('participantUpdate', (participants) => {
-      this.updateState({ participants });
-    });
-
-    this.socket.on('error', (error) => {
-      console.error('YuzuMeet: Socket error:', error);
-      this.updateState({ error: error.message });
-    });
-
-    this.setupDeviceHandlers();
-  }
-
-  setupDeviceHandlers() {
-    switch (this.state.deviceType) {
-      case 'glasses':
-        this.setupGlassesHandlers();
-        break;
-      case 'ring':
-        this.setupRingHandlers();
-        break;
-      case 'watch':
-        this.setupWatchHandlers();
-        break;
-      default:
-        break;
-    }
-  }
-
-  setupGlassesHandlers() {
-    this.socket.on('mediaState', (mediaState) => {
-      this.updateState({
-        isMuted: mediaState.isMuted,
-        isVideoOff: mediaState.isVideoOff
-      });
-    });
-    
-    this.socket.on('brightnessChange', (value) => {
-      this.updateState({ brightness: value });
-    });
-  }
-
-  adjustBrightness(value) {
-    if (this.state.deviceType === 'glasses') {
-      this.socket?.emit('adjustBrightness', value);
-      this.updateState({ brightness: value });
-    }
-  }
-
-  updateGlassesLayout(layout) {
-    if (this.state.deviceType === 'glasses') {
-      this.socket.emit('updateLayout', layout);
-      this.updateState({ currentLayout: layout });
-    }
-  }
-
-  setupRingHandlers() {
-    this.socket.on('gestureRecognized', (gesture) => {
-      this.handleRingGesture(gesture);
-    });
-  }
-
-  setupWatchHandlers() {
-    this.socket.on('notificationReceived', (notification) => {
-      this.handleWatchNotification(notification);
-    });
-  }
-
-  async createMeeting(params) {
-    try {
-      if (!this.socket?.connected) {
-        await this.connectSocket();
-      }
-
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/calendar/create-meeting`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(params)
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to create meeting');
-      }
-
-      const meeting = await response.json();
+    async initializeMediaStream() {
+        console.log('[YuzuMeetService] Starting stream init');
+        try {
+          if (this._mediaStream) {
+            console.log('[YuzuMeetService] Reusing stream:', this._mediaStream.getTracks());
+            return this._mediaStream;
+          }
       
-      if (this.socket?.connected) {
-        this.socket.emit('meetingCreated', meeting);
-      }
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          console.log('[YuzuMeetService] Available devices:', devices);
       
-      this.setCurrentMeeting(meeting);
-      return meeting;
-    } catch (error) {
-      console.error('YuzuMeet: Error creating meeting:', error);
-      throw error;
+          const stream = await navigator.mediaDevices.getUserMedia({
+            audio: true,
+            video: { width: { ideal: 1280 }, height: { ideal: 720 } }
+          });
+          
+          this._mediaStream = stream;
+          console.log('[YuzuMeetService] New stream tracks:', stream.getTracks());
+          
+          this.updateState({
+            mediaStream: stream,
+            localStream: stream,
+            error: null
+          });
+      
+          return stream;
+        } catch (err) {
+          console.error('[YuzuMeetService] Stream init error:', err);
+          throw err;
+        }
+      }
+
+    setupSocketListeners() {
+        const events = {
+            'connect': () => {
+                console.log('Socket connected');
+                this.updateState({ error: null });
+            },
+            'disconnect': () => {
+                console.log('Socket disconnected');
+                this.cleanup();
+            },
+            'stateUpdate': (state) => this.updateState(state),
+            'meetingJoined': (meeting) => {
+                console.log('Meeting joined:', meeting);
+                this.updateState({
+                    currentMeeting: meeting,
+                    isConnecting: false,
+                    error: null
+                });
+            },
+            'participantUpdate': (participants) => this.updateState({ participants }),
+            'error': (error) => {
+                console.error('Socket error:', error);
+                this.updateState({ error: error.message });
+            }
+        };
+
+        Object.entries(events).forEach(([event, handler]) => {
+            this.socket.on(event, handler);
+        });
     }
-  }
 
-  async joinMeeting(meetingId) {
-    try {
-      this.updateState({ isConnecting: true });
-      this.socket.emit('joinMeeting', { meetingId, deviceType: this.state.deviceType });
-    } catch (error) {
-      console.error('YuzuMeet: Error joining meeting:', error);
-      this.updateState({
-        isConnecting: false,
-        error: 'Failed to join meeting',
-      });
-      throw error;
+    async createMeeting(params) {
+        try {
+            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/calendar/create-meeting`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(params)
+            });
+
+            const meeting = await response.json();
+            if (!response.ok) throw new Error(meeting.message);
+
+            await this.joinMeeting(meeting.meetingId);
+            return meeting;
+        } catch (error) {
+            this.updateState({ error: error.message });
+            throw error;
+        }
     }
-  }
 
-  setCurrentMeeting(meeting) {
-    if (this.state.currentMeeting?.meetingId === meeting?.meetingId) {
-      return;
+    async joinMeeting(meetingId) {
+        try {
+            await this.initializeMediaStream();
+            this.updateState({ isConnecting: true, error: null });
+            this.socket?.emit('joinMeeting', {
+                meetingId,
+                deviceType: this.state.deviceType
+            });
+        } catch (error) {
+            this.updateState({
+                isConnecting: false,
+                error: error.message
+            });
+            throw error;
+        }
     }
 
-    this.updateState({
-      currentMeeting: meeting,
-    });
-
-    if (meeting?.meetingId) {
-      this.joinMeeting(meeting.meetingId);
+    async endMeeting() {
+        try {
+            this.socket?.emit('leaveMeeting');
+            this.cleanup();
+            this.updateState({
+                currentMeeting: null,
+                participants: [],
+                remoteStreams: new Map()
+            });
+        } catch (error) {
+            this.updateState({ error: error.message });
+            throw error;
+        }
     }
-  }
 
-  updateState(newState) {
-    this.state = { ...this.state, ...newState };
-    this.subscribers.forEach((callback) => callback(this.state));
-    this.syncStateWithOtherDevices();
-  }
-
-  syncStateWithOtherDevices() {
-    if (this.socket) {
-      this.socket.emit('stateSync', {
-        deviceType: this.state.deviceType,
-        state: this.state,
-      });
+    async toggleMute() {
+        try {
+            const audioTracks = this._mediaStream?.getAudioTracks() || [];
+            audioTracks.forEach(track => track.enabled = !track.enabled);
+            this.socket?.emit('toggleMute');
+            this.updateState({ isMuted: !this.state.isMuted });
+        } catch (error) {
+            this.updateState({ error: error.message });
+            throw error;
+        }
     }
-  }
 
-  subscribe(callback) {
-    this.subscribers.add(callback);
-    return () => {
-      this.subscribers.delete(callback);
-    };
-  }
-
-  async toggleMute() {
-    this.socket.emit('toggleMute');
-  }
-
-  async toggleVideo() {
-    if (!this._mediaStream) {
-      await this.initializeMediaStream();
+    async toggleVideo() {
+        try {
+            if (!this._mediaStream) await this.initializeMediaStream();
+            const videoTracks = this._mediaStream.getVideoTracks();
+            videoTracks.forEach(track => track.enabled = !track.enabled);
+            this.socket?.emit('toggleVideo');
+            this.updateState({ isVideoOff: !this.state.isVideoOff });
+        } catch (error) {
+            this.updateState({ error: error.message });
+            throw error;
+        }
     }
-    
-    const videoTracks = this._mediaStream.getVideoTracks();
-    videoTracks.forEach(track => {
-      track.enabled = !track.enabled;
-    });
-    
-    this.socket?.emit('toggleVideo');
-    this.updateState({ isVideoOff: !this.state.isVideoOff });
-  }
 
-  cleanup() {
-    if (this.socket) {
-      this.socket.disconnect();
+    updateGlassesLayout(layout) {
+        if (this.state.deviceType === 'glasses') {
+            this.socket?.emit('updateLayout', layout);
+            this.updateState({ currentLayout: layout });
+        }
     }
-    this.subscribers.clear();
-  }
+
+    adjustBrightness(value) {
+        if (this.state.deviceType === 'glasses') {
+            this.socket?.emit('adjustBrightness', value);
+            this.updateState({ brightness: value });
+        }
+    }
+
+    updateState(newState) {
+        this.state = { ...this.state, ...newState };
+        this.subscribers.forEach(cb => cb(this.state));
+        this.socket?.emit('stateSync', {
+            deviceType: this.state.deviceType,
+            state: this.state
+        });
+    }
+
+    subscribe(callback) {
+        this.subscribers.add(callback);
+        return () => this.subscribers.delete(callback);
+    }
+
+    cleanup() {
+        this._mediaStream?.getTracks().forEach(track => track.stop());
+        this._mediaStream = null;
+        this.socket?.disconnect();
+    }
 }
 
 export const yuzuMeetService = new YuzuMeetService();

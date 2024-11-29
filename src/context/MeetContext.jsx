@@ -5,38 +5,32 @@ import { yuzuMeetService } from '../services/yuzuMeetService';
 export const MeetContext = createContext(null);
 
 export function MeetProvider({ children }) {
-  const [meetState, setMeetState] = useState(() => {
-    console.log('MeetContext: Initializing state');
-    return yuzuMeetService.state;
-  });
+  const [state, setState] = useState(yuzuMeetService.state);
 
   useEffect(() => {
-    console.log('MeetContext: Setting up subscription');
-    let mounted = true;
-    
-    const unsubscribe = yuzuMeetService.subscribe(state => {
-      console.log('MeetContext: Received state update:', state);
-      if (mounted) {
-        setMeetState(state);
-      }
+    console.log('[MeetContext] Creating provider');
+    const unsubscribe = yuzuMeetService.subscribe((state) => {
+      console.log('[MeetContext] State update:', state);
+      setState(state);
     });
+    return () => unsubscribe();
+  }, []);
 
-    return () => {
-      mounted = false;
-      console.log('MeetContext: Cleaning up subscription');
-      unsubscribe();
-    };
-  }, []); 
+  const contextValue = {
+    ...state,
+    toggleMute: () => yuzuMeetService.toggleMute(),
+    toggleVideo: () => yuzuMeetService.toggleVideo(),
+    createMeeting: (params) => yuzuMeetService.createMeeting(params),
+    adjustBrightness: (value) => yuzuMeetService.adjustBrightness(value),
+    updateGlassesLayout: (layout) => yuzuMeetService.updateGlassesLayout(layout),
+    joinMeeting: (meetingId) => yuzuMeetService.joinMeeting(meetingId),
+    initializeMediaStream: () => yuzuMeetService.initializeMediaStream(),
+    endMeeting: () => yuzuMeetService.endMeeting(),
+    setCurrentMeeting: (meeting) => yuzuMeetService.setCurrentMeeting(meeting)
+  };
 
   return (
-    <MeetContext.Provider value={{
-      ...meetState,
-      toggleMute: () => yuzuMeetService.toggleMute(),
-      toggleVideo: () => yuzuMeetService.toggleVideo(),
-      createMeeting: (params) => yuzuMeetService.createMeeting(params),
-      adjustBrightness: (value) => yuzuMeetService.adjustBrightness(value),
-      updateGlassesLayout: (layout) => yuzuMeetService.updateGlassesLayout(layout)
-    }}>
+    <MeetContext.Provider value={contextValue}>
       {children}
     </MeetContext.Provider>
   );

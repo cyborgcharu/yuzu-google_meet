@@ -1,6 +1,6 @@
 // src/components/StatusIndicators.jsx
 import React from 'react';
-import { useMeet } from '../hooks/useMeet';
+import { useMeet } from '../context/MeetContext';
 
 export function StatusIndicators() {
   const { deviceStates, currentTime } = useMeet();
