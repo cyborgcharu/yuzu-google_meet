@@ -1,11 +1,14 @@
 // src/utils/server.js
 import express from 'express';
 import session from 'express-session';
+import { Server } from 'socket.io';
+import sharedsession from 'express-socket.io-session';
 import cors from 'cors';
 import { google } from 'googleapis';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 import calendarRouter from '../server/routes/calendar.js';
+import { setupSocketServer } from './socketServer.js';
 
 // Load environment variables
 dotenv.config();
@@ -32,10 +35,26 @@ const oauth2Client = new google.auth.OAuth2(
   `${BACKEND_URL}/auth/google/callback`
 );
 
+// Create session middleware
+const sessionMiddleware = session({
+  secret: process.env.SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    path: '/',
+  },
+  name: 'sessionId',
+});
+
 // Middleware Configuration
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser(process.env.SESSION_SECRET));
+app.use(sessionMiddleware);
 
 // CORS Configuration
 app.use(
@@ -48,29 +67,36 @@ app.use(
   })
 );
 
-// Session Configuration
-app.use(
-  session({
-    secret: process.env.SESSION_SECRET,
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-      httpOnly: true,
-      maxAge: 24 * 60 * 60 * 1000, // 24 hours
-      path: '/',
-      // Remove the domain option to allow the cookie to be set for the entire domain
-    },
-    name: 'sessionId',
-  })
-);
+// Create HTTP server
+const server = app.listen(PORT, () => {
+  console.log(`Server running on ${BACKEND_URL}`);
+  console.log(`Accepting requests from ${FRONTEND_URL}`);
+  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+});
+
+// Initialize Socket.IO with CORS settings
+const io = new Server(server, {
+  cors: {
+    origin: FRONTEND_URL,
+    methods: ['GET', 'POST'],
+    credentials: true
+  }
+});
+
+// Share session between Express and Socket.IO
+io.use(sharedsession(sessionMiddleware, {
+  autoSave: true
+}));
+
+// Setup socket handlers
+setupSocketServer(io);
 
 // Request Logging Middleware
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
   next();
 });
+
 
 // Health Check Route
 app.get('/health', (req, res) => {
@@ -229,12 +255,6 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Start Server
-app.listen(PORT, () => {
-  console.log(`Server running on ${BACKEND_URL}`);
-  console.log(`Accepting requests from ${FRONTEND_URL}`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-});
 
 // Error Handling for Uncaught Exceptions
 process.on('uncaughtException', (err) => {
@@ -246,4 +266,4 @@ process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled Rejection at:', promise, 'reason:', reason);
 });
 
-export default app;
+export { app, io, server };

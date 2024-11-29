@@ -1,9 +1,9 @@
 // src/components/MeetingControls.jsx
-import React, { useState, useContex, useCallback } from 'react';
+import React, { useState, useContext, useCallback } from 'react';
 import { MeetContext } from '../context/MeetContext';
 import { useAuth } from '../context/AuthContext';
-import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
-import { Mic, Camera, Settings, PhoneOff, Plus } from 'lucide-react';
+import { Card } from './ui/card';
+import { Mic, Camera, Plus } from 'lucide-react';
 
 export const MeetingControls = () => {
   const { 
@@ -11,15 +11,16 @@ export const MeetingControls = () => {
     isMuted,
     isVideoOff,
     isLoading,
-    googleAuthStatus,
     toggleMute,
     toggleVideo,
     createMeeting
   } = useContext(MeetContext);
-  const { user } = useAuth();
+
+  const { user, isAuthenticated } = useAuth(); // Now correctly destructuring both properties
+
   const [isCreatingMeeting, setIsCreatingMeeting] = useState(false);
   const [newMeetingDetails, setNewMeetingDetails] = useState({
-    title: `${user?.name}'s Meeting`,
+    title: user?.name ? `${user.name}'s Meeting` : 'New Meeting',
     startTime: new Date().toISOString().slice(0, 16),
     duration: 30,
     attendees: ''
@@ -48,7 +49,7 @@ export const MeetingControls = () => {
     }
   }, [isCreatingMeeting, newMeetingDetails, createMeeting]);
 
-  if (googleAuthStatus !== 'authorized') {
+  if (!isAuthenticated) {
     return (
       <Card className="p-4 bg-slate-800 text-white">
         <p>Please authenticate with Google Meet to continue</p>
@@ -119,7 +120,7 @@ export const MeetingControls = () => {
                 type="text"
                 value={newMeetingDetails.title}
                 onChange={(e) => setNewMeetingDetails({ ...newMeetingDetails, title: e.target.value })}
-                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm text-black bg-white"
               />
             </div>
             {/* Add other form fields */}
