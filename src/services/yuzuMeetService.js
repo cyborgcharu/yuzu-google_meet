@@ -15,6 +15,7 @@ class YuzuMeetService {
       error: null,
     };
     this.subscribers = new Set();
+    this.connectSocket();
   }
 
   async initialize(deviceType) {
@@ -25,16 +26,14 @@ class YuzuMeetService {
   async connectSocket() {
     try {
       this.socket = io(`${import.meta.env.VITE_SOCKET_URL}`, {
-        auth: {
-          deviceType: this.state.deviceType,
-        },
+        auth: { deviceType: this.state.deviceType },
+        autoConnect: true // Ensure auto-connection
       });
 
       this.setupSocketListeners();
     } catch (error) {
       console.error('YuzuMeet: Socket connection failed:', error);
       this.updateState({ error: 'Failed to connect to the server' });
-      throw error;
     }
   }
 
@@ -86,9 +85,27 @@ class YuzuMeetService {
     this.socket.on('mediaState', (mediaState) => {
       this.updateState({
         isMuted: mediaState.isMuted,
-        isVideoOff: mediaState.isVideoOff,
+        isVideoOff: mediaState.isVideoOff
       });
     });
+    
+    this.socket.on('brightnessChange', (value) => {
+      this.updateState({ brightness: value });
+    });
+  }
+
+  adjustBrightness(value) {
+    if (this.state.deviceType === 'glasses') {
+      this.socket?.emit('adjustBrightness', value);
+      this.updateState({ brightness: value });
+    }
+  }
+
+  updateGlassesLayout(layout) {
+    if (this.state.deviceType === 'glasses') {
+      this.socket.emit('updateLayout', layout);
+      this.updateState({ currentLayout: layout });
+    }
   }
 
   setupRingHandlers() {
@@ -105,27 +122,31 @@ class YuzuMeetService {
 
   async createMeeting(params) {
     try {
+      if (!this.socket?.connected) {
+        await this.connectSocket();
+      }
+
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/calendar/create-meeting`, {
         method: 'POST',
         credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(params),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params)
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to create meeting');
+        throw new Error('Failed to create meeting');
       }
 
       const meeting = await response.json();
-      this.socket.emit('meetingCreated', meeting);
+      
+      if (this.socket?.connected) {
+        this.socket.emit('meetingCreated', meeting);
+      }
+      
       this.setCurrentMeeting(meeting);
       return meeting;
     } catch (error) {
       console.error('YuzuMeet: Error creating meeting:', error);
-      this.updateState({ error: error.message });
       throw error;
     }
   }
