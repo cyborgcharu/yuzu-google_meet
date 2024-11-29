@@ -16,11 +16,11 @@ export const MeetingControls = () => {
     createMeeting
   } = useContext(MeetContext);
 
-  const { user, isAuthenticated } = useAuth(); // Now correctly destructuring both properties
-  const [error, setError] = useState(null);
-
-
+  const { user, isAuthenticated } = useAuth();
+  
   const [isCreatingMeeting, setIsCreatingMeeting] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [error, setError] = useState(null);
   const [newMeetingDetails, setNewMeetingDetails] = useState({
     title: user?.name ? `${user.name}'s Meeting` : 'New Meeting',
     startTime: new Date().toISOString().slice(0, 16),
@@ -30,35 +30,34 @@ export const MeetingControls = () => {
 
   const handleCreateMeeting = useCallback(async (e) => {
     e.preventDefault();
-    console.log('Creating meeting...'); // Debug log
-    
-    if (isCreatingMeeting) {
-      console.log('Already creating meeting, preventing duplicate submission');
-      return;
-    }
+    if (isCreating) return;
     
     try {
-      setIsCreatingMeeting(true);
-      console.log('Meeting details:', newMeetingDetails); // Debug log
+      setError(null);
+      setIsCreating(true);
+      console.log('Creating meeting with details:', newMeetingDetails);
       
-      const attendeesList = newMeetingDetails.attendees
-        .split(',')
-        .map(email => email.trim())
-        .filter(Boolean);
-  
+      const startTime = new Date(newMeetingDetails.startTime).toISOString();
+      const endTime = new Date(new Date(newMeetingDetails.startTime).getTime() + (newMeetingDetails.duration * 60000)).toISOString();
+      
       const result = await createMeeting({
-        ...newMeetingDetails,
-        attendees: attendeesList
+        title: newMeetingDetails.title,
+        startTime: startTime,
+        endTime: endTime,
+        attendees: newMeetingDetails.attendees ? 
+          newMeetingDetails.attendees.split(',').map(email => email.trim()) : 
+          []
       });
       
-      console.log('Meeting created:', result); // Debug log
-      
-    } catch (error) {
-      console.error('Failed to create meeting:', error);
-    } finally {
+      console.log('Meeting created:', result);
       setIsCreatingMeeting(false);
+    } catch (err) {
+      console.error('Failed to create meeting:', err);
+      setError(err.message || 'Failed to create meeting');
+    } finally {
+      setIsCreating(false);
     }
-  }, [isCreatingMeeting, newMeetingDetails, createMeeting]);
+  }, [isCreating, newMeetingDetails, createMeeting]);
 
   if (!isAuthenticated) {
     return (
@@ -121,7 +120,8 @@ export const MeetingControls = () => {
 
       {isCreatingMeeting && (
         <Card className="p-4 bg-slate-800 text-white">
-          <form onSubmit={handleCreateMeeting} className="space-y-4">  // Make sure this is connected
+          <form onSubmit={handleCreateMeeting} className="space-y-4">
+            {/* Title Field */}
             <div>
               <label htmlFor="title" className="block text-sm font-medium mb-1">
                 Meeting Title
@@ -134,12 +134,70 @@ export const MeetingControls = () => {
                 className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm text-black bg-white"
               />
             </div>
+
+            {/* Start Time Field */}
+            <div>
+              <label htmlFor="startTime" className="block text-sm font-medium mb-1">
+                Start Time
+              </label>
+              <input
+                id="startTime"
+                type="datetime-local"
+                value={newMeetingDetails.startTime}
+                onChange={(e) => setNewMeetingDetails({ ...newMeetingDetails, startTime: e.target.value })}
+                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm text-black bg-white"
+              />
+            </div>
+
+            {/* Duration Field */}
+            <div>
+              <label htmlFor="duration" className="block text-sm font-medium mb-1">
+                Duration (minutes)
+              </label>
+              <input
+                id="duration"
+                type="number"
+                min="15"
+                max="240"
+                value={newMeetingDetails.duration}
+                onChange={(e) => setNewMeetingDetails({ ...newMeetingDetails, duration: parseInt(e.target.value) })}
+                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm text-black bg-white"
+              />
+            </div>
+
+            {/* Attendees Field */}
+            <div>
+              <label htmlFor="attendees" className="block text-sm font-medium mb-1">
+                Attendees (comma-separated emails)
+              </label>
+              <input
+                id="attendees"
+                type="text"
+                value={newMeetingDetails.attendees}
+                onChange={(e) => setNewMeetingDetails({ ...newMeetingDetails, attendees: e.target.value })}
+                placeholder="email1@example.com, email2@example.com"
+                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm text-black bg-white"
+              />
+            </div>
+
+            {/* Submit Button */}
             <button
               type="submit"
-              className="inline-flex justify-center rounded-md border border-transparent bg-indigo-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+              disabled={isCreating}
+              className={`inline-flex justify-center rounded-md border border-transparent 
+                ${isCreating ? 'bg-indigo-400' : 'bg-indigo-600 hover:bg-indigo-700'} 
+                py-2 px-4 text-sm font-medium text-white shadow-sm 
+                focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2`}
             >
-              Create Meeting
+              {isCreating ? 'Creating...' : 'Create Meeting'}
             </button>
+
+            {/* Error Display */}
+            {error && (
+              <div className="mt-2 text-red-500 text-sm">
+                {error}
+              </div>
+            )}
           </form>
         </Card>
       )}

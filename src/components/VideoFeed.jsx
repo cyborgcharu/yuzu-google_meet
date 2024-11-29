@@ -1,5 +1,5 @@
 // src/components/VideoFeed.jsx
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useMeet } from '../hooks/useMeet';
 
 export const VideoFeed = () => {
@@ -8,9 +8,8 @@ export const VideoFeed = () => {
     deviceType,
     participants,
     localStream,
-    remoteStreams
+    remoteStreams,
   } = useMeet();
-  const [layout, setLayout] = useState('grid');
   const localVideoRef = useRef(null);
   const remoteVideoRefs = useRef(new Map());
 
@@ -29,18 +28,18 @@ export const VideoFeed = () => {
     });
   }, [remoteStreams]);
 
-  const renderParticipantVideo = (participant) => {
+  const ParticipantVideo = ({ participant }) => {
     if (!remoteVideoRefs.current.has(participant.id)) {
       remoteVideoRefs.current.set(participant.id, React.createRef());
     }
 
     return (
-      <div key={participant.id} className="relative">
+      <div className="relative rounded-lg overflow-hidden">
         <video
           ref={remoteVideoRefs.current.get(participant.id)}
           autoPlay
           playsInline
-          className="w-full h-full object-cover rounded-lg"
+          className="w-full h-full object-cover"
         />
         <div className="absolute bottom-2 left-2 bg-black/50 px-2 py-1 rounded text-white text-sm">
           {participant.name}
@@ -49,54 +48,38 @@ export const VideoFeed = () => {
     );
   };
 
-  const getLayoutClass = () => {
-    switch (layout) {
-      case 'grid':
-        return 'grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-4';
-      case 'spotlight':
-        return 'grid grid-cols-1 gap-2';
-      default:
-        return 'grid grid-cols-2 gap-2';
-    }
-  };
-
   return (
-    <div className="fixed inset-0 bg-black">
-      <div className={`p-4 h-full ${getLayoutClass()}`}>
-        {/* Local video */}
-        <div className="relative">
+    <div className="fixed inset-0 bg-black p-4 flex flex-col gap-4">
+      <div className="flex gap-4 grow">
+        <div className="relative rounded-lg overflow-hidden grow">
           <video
             ref={localVideoRef}
             autoPlay
             playsInline
             muted
-            className="w-full h-full object-cover rounded-lg"
+            className="w-full h-full object-cover"
           />
           <div className="absolute bottom-2 left-2 bg-black/50 px-2 py-1 rounded text-white text-sm">
             You
           </div>
         </div>
-        
-        {/* Remote participants */}
-        {participants.map(renderParticipantVideo)}
+        {participants && participants.length > 0 ? (
+          participants.map((participant) => (
+            <ParticipantVideo key={participant.id} participant={participant} />
+          ))
+        ) : (
+          <div className="flex items-center justify-center grow text-white text-lg">
+            No participants available
+          </div>
+        )}
       </div>
 
       {deviceType === 'glasses' && (
-        <div className="absolute top-4 right-4 space-x-2">
-          <button
-            onClick={() => setLayout('grid')}
-            className={`px-3 py-1 rounded ${
-              layout === 'grid' ? 'bg-blue-500' : 'bg-gray-500'
-            }`}
-          >
+        <div className="self-end space-x-2">
+          <button className="px-3 py-1 rounded bg-gray-500 text-white">
             Grid
           </button>
-          <button
-            onClick={() => setLayout('spotlight')}
-            className={`px-3 py-1 rounded ${
-              layout === 'spotlight' ? 'bg-blue-500' : 'bg-gray-500'
-            }`}
-          >
+          <button className="px-3 py-1 rounded bg-gray-500 text-white">
             Spotlight
           </button>
         </div>
@@ -104,3 +87,5 @@ export const VideoFeed = () => {
     </div>
   );
 };
+
+export default VideoFeed;

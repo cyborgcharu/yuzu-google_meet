@@ -6,13 +6,13 @@ class YuzuMeetService {
     this.socket = null;
     this.state = {
       currentMeeting: null,
-      deviceType: null, // 'glasses', 'ring', or 'watch'
+      deviceType: null,
       isMuted: false,
       isVideoOff: false,
       participants: [],
       connectedDevices: new Set(),
       isConnecting: false,
-      error: null
+      error: null,
     };
     this.subscribers = new Set();
   }
@@ -26,13 +26,14 @@ class YuzuMeetService {
     try {
       this.socket = io(`${import.meta.env.VITE_SOCKET_URL}`, {
         auth: {
-          deviceType: this.state.deviceType
-        }
+          deviceType: this.state.deviceType,
+        },
       });
 
       this.setupSocketListeners();
     } catch (error) {
       console.error('YuzuMeet: Socket connection failed:', error);
+      this.updateState({ error: 'Failed to connect to the server' });
       throw error;
     }
   }
@@ -43,20 +44,17 @@ class YuzuMeetService {
     });
 
     this.socket.on('stateUpdate', (newState) => {
-      console.log('YuzuMeet: Received state update:', newState);
       this.updateState(newState);
     });
 
     this.socket.on('meetingJoined', (meetingData) => {
-      console.log('YuzuMeet: Joined meeting:', meetingData);
       this.updateState({
         currentMeeting: meetingData,
-        isConnecting: false
+        isConnecting: false,
       });
     });
 
     this.socket.on('participantUpdate', (participants) => {
-      console.log('YuzuMeet: Participant update:', participants);
       this.updateState({ participants });
     });
 
@@ -65,13 +63,22 @@ class YuzuMeetService {
       this.updateState({ error: error.message });
     });
 
-    // Device-specific handlers
-    if (this.state.deviceType === 'glasses') {
-      this.setupGlassesHandlers();
-    } else if (this.state.deviceType === 'ring') {
-      this.setupRingHandlers();
-    } else if (this.state.deviceType === 'watch') {
-      this.setupWatchHandlers();
+    this.setupDeviceHandlers();
+  }
+
+  setupDeviceHandlers() {
+    switch (this.state.deviceType) {
+      case 'glasses':
+        this.setupGlassesHandlers();
+        break;
+      case 'ring':
+        this.setupRingHandlers();
+        break;
+      case 'watch':
+        this.setupWatchHandlers();
+        break;
+      default:
+        break;
     }
   }
 
@@ -79,56 +86,46 @@ class YuzuMeetService {
     this.socket.on('mediaState', (mediaState) => {
       this.updateState({
         isMuted: mediaState.isMuted,
-        isVideoOff: mediaState.isVideoOff
+        isVideoOff: mediaState.isVideoOff,
       });
     });
   }
 
   setupRingHandlers() {
     this.socket.on('gestureRecognized', (gesture) => {
-      // Handle ring-specific gestures
       this.handleRingGesture(gesture);
     });
   }
 
   setupWatchHandlers() {
     this.socket.on('notificationReceived', (notification) => {
-      // Handle watch-specific notifications
       this.handleWatchNotification(notification);
     });
   }
 
   async createMeeting(params) {
     try {
-      console.log('YuzuMeet: Creating meeting with params:', params);
-      
-      // First create the meeting via Calendar API
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/calendar/create-meeting`, {
         method: 'POST',
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(params)
+        body: JSON.stringify(params),
       });
-  
+
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to create meeting');
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to create meeting');
       }
-  
+
       const meeting = await response.json();
-      console.log('YuzuMeet: Meeting created:', meeting);
-  
-      // Now notify other devices via socket
       this.socket.emit('meetingCreated', meeting);
-      
-      // Update local state
       this.setCurrentMeeting(meeting);
-      
       return meeting;
     } catch (error) {
       console.error('YuzuMeet: Error creating meeting:', error);
+      this.updateState({ error: error.message });
       throw error;
     }
   }
@@ -136,15 +133,12 @@ class YuzuMeetService {
   async joinMeeting(meetingId) {
     try {
       this.updateState({ isConnecting: true });
-      this.socket.emit('joinMeeting', {
-        meetingId,
-        deviceType: this.state.deviceType
-      });
+      this.socket.emit('joinMeeting', { meetingId, deviceType: this.state.deviceType });
     } catch (error) {
       console.error('YuzuMeet: Error joining meeting:', error);
       this.updateState({
         isConnecting: false,
-        error: 'Failed to join meeting'
+        error: 'Failed to join meeting',
       });
       throw error;
     }
@@ -154,11 +148,11 @@ class YuzuMeetService {
     if (this.state.currentMeeting?.meetingId === meeting?.meetingId) {
       return;
     }
-    
+
     this.updateState({
-      currentMeeting: meeting
+      currentMeeting: meeting,
     });
-    
+
     if (meeting?.meetingId) {
       this.joinMeeting(meeting.meetingId);
     }
@@ -166,13 +160,15 @@ class YuzuMeetService {
 
   updateState(newState) {
     this.state = { ...this.state, ...newState };
-    this.subscribers.forEach(callback => callback(this.state));
-    
-    // Sync state with other devices
+    this.subscribers.forEach((callback) => callback(this.state));
+    this.syncStateWithOtherDevices();
+  }
+
+  syncStateWithOtherDevices() {
     if (this.socket) {
       this.socket.emit('stateSync', {
         deviceType: this.state.deviceType,
-        state: this.state
+        state: this.state,
       });
     }
   }
@@ -184,7 +180,6 @@ class YuzuMeetService {
     };
   }
 
-  // Media controls - now sent through socket
   async toggleMute() {
     this.socket.emit('toggleMute');
   }
