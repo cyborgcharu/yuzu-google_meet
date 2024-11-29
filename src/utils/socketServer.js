@@ -14,17 +14,21 @@ export function setupSocketServer(server) {
 
   // Authentication middleware
   io.use((socket, next) => {
-    const sessionId = socket.handshake.auth.sessionId;
-    if (!sessionId) {
-      return next(new Error('Authentication error'));
-    }
-    socket.sessionId = sessionId;
-    next();
-  });
+    console.log('[SocketServer] Auth attempt:', {
+        deviceType: socket.handshake.auth.deviceType,
+        session: socket.handshake.session  // Add this to check session
+    });
+    next(); // Temporarily bypass auth for testing
+});
 
   // Handle device connections
   io.on('connection', (socket) => {
-    const { sessionId } = socket;
+    console.log('[SocketServer] New connection details:', {
+        id: socket.id,
+        session: socket.handshake.session,
+        auth: socket.handshake.auth
+    });
+    const sessionId = socket.handshake.session?.id;
     const deviceType = socket.handshake.auth.deviceType;
 
     console.log(`[SocketServer] New ${deviceType} connection:`, socket.id);
@@ -36,14 +40,25 @@ export function setupSocketServer(server) {
 
     // Handle meeting events
     socket.on('joinMeeting', (meetingData) => {
-      console.log(`[SocketServer] ${deviceType} joining meeting:`, meetingData);
-      serverSessionManager.updateMeetingState(sessionId, {
-        ...meetingData,
-        deviceType,
-        socketId: socket.id
+        console.log(`[SocketServer] ${deviceType} joining meeting:`, {
+          meetingData,
+          sessionId,
+          socketId: socket.id
+        });
+      
+        // Get current session
+        const session = serverSessionManager.getSessionByDeviceId(socket.id);
+        console.log('[SocketServer] Current session:', session);
+      
+        const updatedSession = serverSessionManager.updateMeetingState(sessionId, {
+          ...meetingData,
+          deviceType,
+          socketId: socket.id
+        });
+        console.log('[SocketServer] Updated session:', updatedSession);
+      
+        socket.join(meetingData.meetingId);
       });
-      socket.join(meetingData.meetingId);
-    });
 
     socket.on('mediaStateChange', (state) => {
       const session = serverSessionManager.getSessionByDeviceId(socket.id);

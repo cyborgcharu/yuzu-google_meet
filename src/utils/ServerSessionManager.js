@@ -89,18 +89,39 @@ class ServerSessionManager {
     }
   
     updateMeetingState(sessionId, meetingState) {
-      const session = this.sessions.get(sessionId);
-      if (!session) return null;
-  
-      session.currentMeeting = meetingState;
-      session.lastActivity = new Date();
+        const session = this.sessions.get(sessionId);
+        if (!session) return null;
       
-      // Broadcast meeting state to all connected devices
-      session.connectedDevices.forEach(({ socket }) => {
-        socket.emit('meetingStateUpdate', meetingState);
-      });
-  
-      return session;
+        // Add this check and merge
+        if (session.currentMeeting?.meetingId === meetingState.meetingId) {
+          meetingState = { ...session.currentMeeting, ...meetingState };
+        }
+      
+        // Initialize or update participants array
+        if (!meetingState.participants) {
+          meetingState.participants = [];
+        }
+        
+        // Add the current device as a participant if not already present
+        const deviceInfo = {
+          deviceType: meetingState.deviceType,
+          socketId: meetingState.socketId
+        };
+        
+        if (!meetingState.participants.some(p => p.socketId === deviceInfo.socketId)) {
+          meetingState.participants.push(deviceInfo);
+        }
+      
+        session.currentMeeting = meetingState;
+        session.lastActivity = new Date();
+        
+        // Emit both meeting state and participant updates
+        session.connectedDevices.forEach(({ socket }) => {
+          socket.emit('meetingStateUpdate', meetingState);
+          socket.emit('participantUpdate', meetingState.participants);
+        });
+      
+        return session;
     }
   }
   

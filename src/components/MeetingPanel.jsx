@@ -17,30 +17,33 @@ export const MeetingPanel = () => {
     });
   
     const handleCreate = async (e) => {
-      e.preventDefault();
-      if (isCreating) return;
-      
-      try {
-        setError(null);
-        setIsCreating(true);
+        e.preventDefault();
+        if (isCreating) return;
         
-        const startTime = new Date(details.startTime).toISOString();
-        const endTime = new Date(new Date(details.startTime).getTime() + 
-          (details.duration * 60000)).toISOString();
-        
-        await createMeeting({
-          title: details.title,
-          startTime,
-          endTime,
-          attendees: details.attendees ? 
-            details.attendees.split(',').map(email => email.trim()) : []
-        });
-      } catch (err) {
-        setError(err.message || 'Failed to create meeting');
-      } finally {
-        setIsCreating(false);
-      }
-    };
+        try {
+          console.log('[MeetingPanel] Creating meeting with details:', details);
+          setError(null);
+          setIsCreating(true);
+          
+          const startTime = new Date(details.startTime).toISOString();
+          const endTime = new Date(new Date(details.startTime).getTime() + 
+            (details.duration * 60000)).toISOString();
+          
+          const meeting = await createMeeting({
+            title: details.title,
+            startTime,
+            endTime,
+            attendees: details.attendees ? 
+              details.attendees.split(',').map(email => email.trim()) : []
+          });
+          console.log('[MeetingPanel] Meeting created:', meeting);
+        } catch (err) {
+          console.error('[MeetingPanel] Create meeting error:', err);
+          setError(err.message || 'Failed to create meeting');
+        } finally {
+          setIsCreating(false);
+        }
+      };
   
     return (
       <Card className="p-4 bg-slate-800 text-white">

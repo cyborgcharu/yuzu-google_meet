@@ -23,13 +23,29 @@ class YuzuMeetService {
         this.connectSocket();
     }
 
-    async connectSocket() {
+    connectSocket() {
         try {
-            this.socket = io(import.meta.env.VITE_SOCKET_URL, {
+            console.log('[YuzuMeetService] Connecting socket with:', {
+                url: import.meta.env.VITE_SOCKET_URL,
                 auth: { deviceType: this.state.deviceType }
             });
+            this.socket = io(import.meta.env.VITE_SOCKET_URL, {
+                auth: { deviceType: this.state.deviceType },
+                withCredentials: true
+            });
+    
+            // Add these debug logs
+            this.socket.on('connect', () => {
+                console.log('[YuzuMeetService] Socket connected with ID:', this.socket.id);
+            });
+    
+            this.socket.on('connect_error', (error) => {
+                console.error('[YuzuMeetService] Socket connection error:', error);
+            });
+    
             this.setupSocketListeners();
         } catch (error) {
+            console.error('[YuzuMeetService] Socket connect error:', error);
             this.updateState({ error: 'Socket connection failed' });
             throw error;
         }
@@ -86,7 +102,10 @@ class YuzuMeetService {
                     error: null
                 });
             },
-            'participantUpdate': (participants) => this.updateState({ participants }),
+            'participantUpdate': (participants) => {
+                    console.log('[YuzuMeetService] Received participant update:', participants);
+                    this.updateState({ participants });
+                },
             'error': (error) => {
                 console.error('Socket error:', error);
                 this.updateState({ error: error.message });
@@ -106,17 +125,33 @@ class YuzuMeetService {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(params)
             });
-
+    
             const meeting = await response.json();
             if (!response.ok) throw new Error(meeting.message);
-
-            await this.joinMeeting(meeting.meetingId);
+    
+            console.log('[YuzuMeetService] Meeting created, joining:', meeting);
+            
+            // First update state with the meeting
+            this.updateState({ 
+                currentMeeting: meeting
+            });
+            
+            // Then explicitly try to join with the meeting ID
+            try {
+                await this.joinMeeting(meeting.meetingId);
+                console.log('[YuzuMeetService] Successfully joined meeting');
+            } catch (joinError) {
+                console.error('[YuzuMeetService] Failed to join meeting:', joinError);
+                throw joinError;
+            }
+    
             return meeting;
         } catch (error) {
             this.updateState({ error: error.message });
             throw error;
         }
     }
+    
 
     async joinMeeting(meetingId) {
         try {
@@ -124,7 +159,15 @@ class YuzuMeetService {
             this.updateState({ isConnecting: true, error: null });
             this.socket?.emit('joinMeeting', {
                 meetingId,
-                deviceType: this.state.deviceType
+                deviceType: this.state.deviceType,
+                meetingUrl: this.state.currentMeeting?.meetingUrl,
+                googleMeetId: this.state.currentMeeting?.meetingId 
+            });
+            this.socket?.emit('joinMeeting', {
+                meetingId,
+                deviceType: this.state.deviceType,
+                meetingUrl: this.state.currentMeeting?.meetingUrl,
+                googleMeetId: this.state.currentMeeting?.meetingId 
             });
         } catch (error) {
             this.updateState({
