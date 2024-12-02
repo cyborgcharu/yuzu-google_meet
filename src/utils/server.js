@@ -45,7 +45,11 @@ const sessionMiddleware = session({
     sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
     httpOnly: true,
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
+<<<<<<< HEAD
     path: '/',
+=======
+    path: '/'
+>>>>>>> d709c69 (fixing env variables for prod deploy)
   },
   name: 'sessionId',
 });

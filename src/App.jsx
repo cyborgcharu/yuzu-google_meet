@@ -60,6 +60,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+<<<<<<< HEAD
         <MeetProvider>
           <div className="min-h-screen bg-black text-white flex flex-col">
             <Navigation />
@@ -73,6 +74,20 @@ export default function App() {
                   path="/glasses" 
                   element={
                     <ProtectedRoute>
+=======
+        <div className="min-h-screen bg-gray-100 flex flex-col">
+          <Navigation />
+          <main className="flex-1 pt-16">
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/auth/success" element={<AuthSuccess />} />
+              <Route path="/auth/failure" element={<AuthFailure />} />
+              <Route 
+                path="/glasses" 
+                element={
+                  <ProtectedRoute>
+                    <MeetInterface>
+>>>>>>> d709c69 (fixing env variables for prod deploy)
                       <GlassesMeetDisplay />
                     </ProtectedRoute>
                   } 
