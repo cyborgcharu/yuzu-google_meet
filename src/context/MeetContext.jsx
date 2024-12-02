@@ -1,65 +1,36 @@
+// src/context/MeetContext.jsx
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { googleMeetService } from '../services/meetService';
+import { yuzuMeetService } from '../services/yuzuMeetService';
 
 export const MeetContext = createContext(null);
 
 export function MeetProvider({ children }) {
-  const [meetState, setMeetState] = useState(() => {
-    // Check localStorage for existing meeting
-    const savedMeeting = localStorage.getItem('currentMeeting');
-    if (savedMeeting) {
-      googleMeetService.state.currentMeeting = JSON.parse(savedMeeting);
-    }
-    return googleMeetService.state;
-  });
+  const [state, setState] = useState(yuzuMeetService.state);
 
   useEffect(() => {
-    const unsubscribe = googleMeetService.subscribe(state => {
-      setMeetState(state);
-      console.log('Meet state updated:', state);
+    console.log('[MeetContext] Creating provider');
+    const unsubscribe = yuzuMeetService.subscribe((state) => {
+      console.log('[MeetContext] State update:', state);
+      setState(state);
     });
-
-    const path = window.location.pathname;
-    const interfaceType = path.split('/')[1] || 'web';
-    googleMeetService.connectDevice(interfaceType);
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        googleMeetService.connectDevice(interfaceType);
-      } else {
-        googleMeetService.disconnectDevice(interfaceType);
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    return () => {
-      unsubscribe();
-      googleMeetService.disconnectDevice(interfaceType);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
+    return () => unsubscribe();
   }, []);
 
-  // Save meeting to localStorage when it changes
-  useEffect(() => {
-    if (meetState.currentMeeting) {
-      localStorage.setItem('currentMeeting', JSON.stringify(meetState.currentMeeting));
-    }
-  }, [meetState.currentMeeting]);
-
-  const value = React.useMemo(() => ({
-    ...meetState,
-    createMeeting: (params) => googleMeetService.createMeeting(params),
-    toggleMute: (source) => googleMeetService.toggleMute(source),
-    toggleVideo: (source) => googleMeetService.toggleVideo(source),
-    connectDevice: (deviceType) => googleMeetService.connectDevice(deviceType),
-    disconnectDevice: (deviceType) => googleMeetService.disconnectDevice(deviceType),
-    setCurrentMeeting: (meeting) => googleMeetService.setCurrentMeeting(meeting),
-    updateParticipants: (participants) => googleMeetService.updateParticipants(participants)
-  }), [meetState]);
+  const contextValue = {
+    ...state,
+    toggleMute: () => yuzuMeetService.toggleMute(),
+    toggleVideo: () => yuzuMeetService.toggleVideo(),
+    createMeeting: (params) => yuzuMeetService.createMeeting(params),
+    adjustBrightness: (value) => yuzuMeetService.adjustBrightness(value),
+    updateGlassesLayout: (layout) => yuzuMeetService.updateGlassesLayout(layout),
+    joinMeeting: (meetingId) => yuzuMeetService.joinMeeting(meetingId),
+    initializeMediaStream: () => yuzuMeetService.initializeMediaStream(),
+    endMeeting: () => yuzuMeetService.endMeeting(),
+    setCurrentMeeting: (meeting) => yuzuMeetService.setCurrentMeeting(meeting)
+  };
 
   return (
-    <MeetContext.Provider value={value}>
+    <MeetContext.Provider value={contextValue}>
       {children}
     </MeetContext.Provider>
   );
