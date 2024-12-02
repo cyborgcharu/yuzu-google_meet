@@ -30,28 +30,24 @@ const BACKEND_URL = process.env.BACKEND_URL || `http://localhost:${PORT}`;
 
 // Initialize Google OAuth2 client
 const oauth2Client = new google.auth.OAuth2(
-  process.env.VITE_GOOGLE_CLIENT_ID,
-  process.env.VITE_GOOGLE_CLIENT_SECRET,
-  `${BACKEND_URL}/auth/google/callback`
+ process.env.VITE_GOOGLE_CLIENT_ID,
+ process.env.VITE_GOOGLE_CLIENT_SECRET,
+ `${BACKEND_URL}/auth/google/callback`
 );
 
 // Create session middleware
 const sessionMiddleware = session({
-  secret: process.env.SESSION_SECRET,
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-    httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
-<<<<<<< HEAD
-    path: '/',
-=======
-    path: '/'
->>>>>>> d709c69 (fixing env variables for prod deploy)
-  },
-  name: 'sessionId',
+ secret: process.env.SESSION_SECRET,
+ resave: false,
+ saveUninitialized: false,
+ cookie: {
+   secure: process.env.NODE_ENV === 'production',
+   sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+   httpOnly: true,
+   maxAge: 24 * 60 * 60 * 1000, // 24 hours
+   path: '/'
+ },
+ name: 'sessionId',
 });
 
 // Middleware Configuration
