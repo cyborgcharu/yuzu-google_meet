@@ -86,7 +86,6 @@ export default defineConfig(({ mode }) => {
     
     // Esbuild settings
     esbuild: {
-      jsxInject: `import React from 'react'`,
       target: 'es2020'
     }
   };
