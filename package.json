@@ -9,7 +9,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "start": "node src/utils/server.js",
-    "vercel-build": "npm run build"
+    "vercel-build": "vite build"
   },
   "dependencies": {
     "buffer": "^6.0.3",

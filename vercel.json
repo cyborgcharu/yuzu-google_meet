@@ -25,8 +25,16 @@
       "dest": "src/utils/server.js"
     },
     {
+      "src": "/health",
+      "dest": "src/utils/server.js"
+    },
+    {
+      "src": "^/assets/(.*)",
+      "dest": "/dist/assets/$1"
+    },
+    {
       "src": "/(.*)",
-      "dest": "/"
+      "dest": "/dist/index.html"
     }
   ]
 }
