@@ -13,11 +13,7 @@
   ],
   "routes": [
     {
-      "src": "/auth/google/login",
-      "dest": "src/utils/server.js"
-    },
-    {
-      "src": "/auth/google/callback",
+      "src": "/socket.io/(.*)",
       "dest": "src/utils/server.js"
     },
     {
@@ -25,15 +21,12 @@
       "dest": "src/utils/server.js"
     },
     {
-      "src": "/socket.io/(.*)",
+      "src": "/api/(.*)",
       "dest": "src/utils/server.js"
     },
     {
-      "handle": "filesystem"
-    },
-    {
       "src": "/(.*)",
-      "dest": "/dist/$1"
+      "dest": "/"
     }
   ]
 }
