@@ -1,6 +1,6 @@
 {
   "name": "yuzu-google-meet",
-  "version": "3.3.3",
+  "version": "4.0.0",
   "type": "module",
   "scripts": {
     "build": "vite build",
