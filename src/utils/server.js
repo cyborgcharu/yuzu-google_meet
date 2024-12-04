@@ -10,12 +10,22 @@ import cookieParser from 'cookie-parser';
 import calendarRouter from '../server/routes/calendar.js';
 import { setupSocketServer } from './socketServer.js';
 
-// Load environment variables
+// Load environment variables first
 dotenv.config({
   path: process.env.NODE_ENV === 'production' 
     ? '.env.production'
     : '.env.development'
 });
+
+// Basic configuration
+const PORT = process.env.PORT || 3000;
+const isProduction = process.env.NODE_ENV === 'production';
+const BACKEND_URL = isProduction 
+  ? 'https://yuzu-google-meet.vercel.app'
+  : `http://localhost:${PORT}`;
+const FRONTEND_URL = isProduction
+  ? 'https://yuzu-google-meet.vercel.app'
+  : 'http://localhost:8080';
 
 // Validate required environment variables
 const requiredEnvVars = ['VITE_GOOGLE_CLIENT_ID', 'VITE_GOOGLE_CLIENT_SECRET', 'SESSION_SECRET'];
@@ -26,32 +36,27 @@ requiredEnvVars.forEach((envVar) => {
   }
 });
 
-// Server configuration
+// Initialize Express app
 const app = express();
-const PORT = process.env.PORT || 3000;
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:8080';
-const BACKEND_URL = process.env.BACKEND_URL || `http://localhost:${PORT}`;
 
 // Initialize Google OAuth2 client
 const oauth2Client = new google.auth.OAuth2(
- process.env.VITE_GOOGLE_CLIENT_ID,
- process.env.VITE_GOOGLE_CLIENT_SECRET,
- `${BACKEND_URL}/auth/google/callback`
+  process.env.VITE_GOOGLE_CLIENT_ID,
+  process.env.VITE_GOOGLE_CLIENT_SECRET,
+  `${BACKEND_URL}/auth/google/callback`
 );
 
-// Create session middleware
+// Session configuration
 const sessionMiddleware = session({
   secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    secure: isProduction,
+    sameSite: isProduction ? 'none' : 'lax',
     httpOnly: true,
     maxAge: 24 * 60 * 60 * 1000,
-    domain: process.env.NODE_ENV === 'production' 
-      ? '.vercel.app'
-      : undefined
+    domain: isProduction ? '.vercel.app' : undefined
   },
   name: 'sessionId'
 });
@@ -63,47 +68,31 @@ app.use(cookieParser(process.env.SESSION_SECRET));
 app.use(sessionMiddleware);
 
 // CORS Configuration
-app.use(
-  cors({
-    origin: process.env.NODE_ENV === 'production' 
-    ? 'https://yuzu-google-meet.vercel.app'
-    : FRONTEND_URL,
-    credentials: true,
-    methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Cookie'],
-    exposedHeaders: ['Set-Cookie', 'Access-Control-Allow-Origin'],
-  })
-);
+app.use(cors({
+  origin: FRONTEND_URL,
+  credentials: true,
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Cookie'],
+  exposedHeaders: ['Set-Cookie', 'Access-Control-Allow-Origin']
+}));
 
-// Create HTTP server
+// Server setup
 const server = app.listen(PORT, () => {
   console.log(`Server running on ${BACKEND_URL}`);
   console.log(`Accepting requests from ${FRONTEND_URL}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
 });
 
-// Initialize Socket.IO with CORS settings
+// Socket.IO setup
 const io = new Server(server, {
   cors: {
-    origin: process.env.NODE_ENV === 'production' 
-      ? 'https://yuzu-google-meet.vercel.app'
-      : FRONTEND_URL,
+    origin: FRONTEND_URL,
     methods: ['GET', 'POST'],
     credentials: true
   },
   path: '/socket.io/',
   transports: ['websocket', 'polling']
 });
-
-if (process.env.NODE_ENV === 'production') {
-  const path = await import('path');
-  const __dirname = path.dirname(new URL(import.meta.url).pathname);
-  app.use(express.static(path.join(__dirname, '../../dist')));
-  
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../../dist/index.html'));
-  });
-}
 
 // Share session between Express and Socket.IO
 io.use(sharedsession(sessionMiddleware, {
@@ -113,12 +102,18 @@ io.use(sharedsession(sessionMiddleware, {
 // Setup socket handlers
 setupSocketServer(io);
 
+// Production static file serving
+if (isProduction) {
+  const path = await import('path');
+  const __dirname = path.dirname(new URL(import.meta.url).pathname);
+  app.use(express.static(path.join(__dirname, '../../dist')));
+}
+
 // Request Logging Middleware
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
   next();
 });
-
 
 // Health Check Route
 app.get('/health', (req, res) => {
@@ -129,7 +124,7 @@ app.get('/health', (req, res) => {
 app.get('/auth/google/login', (req, res) => {
   console.log('OAuth2 Client config:', {
     clientId: process.env.VITE_GOOGLE_CLIENT_ID,
-    redirectUri: `${BACKEND_URL}/auth/google/callback`,
+    redirectUri: `${BACKEND_URL}/auth/google/callback`
   });
 
   const authUrl = oauth2Client.generateAuthUrl({
@@ -144,8 +139,9 @@ app.get('/auth/google/login', (req, res) => {
       'https://www.googleapis.com/auth/calendar.events',
       'https://www.googleapis.com/auth/meetings.space.created',
       'https://www.googleapis.com/auth/meetings.space.readonly'
-    ],
+    ]
   });
+  
   console.log('Generated auth URL:', authUrl);
   res.redirect(authUrl);
 });
@@ -157,44 +153,30 @@ app.get('/auth/google/callback', async (req, res) => {
   try {
     const { code } = req.query;
     if (!code) {
-      console.error('No authorization code received');
       throw new Error('No authorization code received');
     }
 
-    console.log('Exchanging code for tokens...');
     const { tokens } = await oauth2Client.getToken(code);
     oauth2Client.setCredentials(tokens);
 
-    console.log('Fetching user information...');
     const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
     const userInfo = await oauth2.userinfo.get();
-
-    console.log('Storing user data and tokens in session...');
-    console.log('User data:', userInfo.data);
-    console.log('Tokens:', tokens);
 
     req.session.tokens = tokens;
     req.session.user = {
       id: userInfo.data.id,
       email: userInfo.data.email,
       name: userInfo.data.name,
-      picture: userInfo.data.picture,
+      picture: userInfo.data.picture
     };
 
-    console.log('Saving session...');
     await new Promise((resolve, reject) => {
       req.session.save((err) => {
-        if (err) {
-          console.error('Error saving session:', err);
-          reject(err);
-        } else {
-          console.log('Session saved successfully');
-          resolve();
-        }
+        if (err) reject(err);
+        else resolve();
       });
     });
 
-    console.log('Redirecting to frontend...');
     res.redirect(`${FRONTEND_URL}/glasses`);
   } catch (error) {
     console.error('Auth callback error:', error);
@@ -204,27 +186,18 @@ app.get('/auth/google/callback', async (req, res) => {
 
 // User Session Routes
 app.get('/auth/user', (req, res) => {
-  console.log('Handling /auth/user request');
-  console.log('Session:', req.session);
-
   if (!req.session?.user) {
-    console.error('No user session found');
-    console.log('Session cookies:', req.cookies);
     return res.status(401).json({
       error: 'Unauthorized',
-      message: 'No user session found',
+      message: 'No user session found'
     });
   }
-
-  console.log('Returning user data:', req.session.user);
   res.json(req.session.user);
 });
 
 app.post('/auth/logout', (req, res) => {
-  console.log('Handling /auth/logout request');
   req.session.destroy((err) => {
     if (err) {
-      console.error('Logout error:', err);
       return res.status(500).json({ error: 'Failed to logout' });
     }
     res.clearCookie('sessionId');
@@ -234,26 +207,19 @@ app.post('/auth/logout', (req, res) => {
 
 // Token Refresh Route
 app.post('/auth/refresh', async (req, res) => {
-  console.log('Handling /auth/refresh request');
-
   try {
     if (!req.session?.tokens?.refresh_token) {
-      console.error('No refresh token available');
       throw new Error('No refresh token available');
     }
 
     oauth2Client.setCredentials({
-      refresh_token: req.session.tokens.refresh_token,
+      refresh_token: req.session.tokens.refresh_token
     });
 
-    console.log('Refreshing access token...');
     const { credentials } = await oauth2Client.refreshAccessToken();
     req.session.tokens = credentials;
-
-    console.log('Returning refreshed tokens');
     res.json({ success: true, tokens: credentials });
   } catch (error) {
-    console.error('Token refresh error:', error);
     res.status(500).json({ error: 'Failed to refresh token' });
   }
 });
@@ -261,12 +227,20 @@ app.post('/auth/refresh', async (req, res) => {
 // Register Additional Routes
 app.use('/calendar', calendarRouter);
 
+// Production catch-all route for SPA
+if (isProduction) {
+  const path = await import('path');
+  const __dirname = path.dirname(new URL(import.meta.url).pathname);
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../../dist/index.html'));
+  });
+}
+
 // 404 Handler
 app.use((req, res) => {
-  console.log('Handling 404 request');
   res.status(404).json({
     error: 'Not Found',
-    message: `Route ${req.method} ${req.url} not found`,
+    message: `Route ${req.method} ${req.url} not found`
   });
 });
 
@@ -275,10 +249,9 @@ app.use((err, req, res, next) => {
   console.error('Server error:', err);
   res.status(500).json({
     error: 'Internal Server Error',
-    message: process.env.NODE_ENV === 'development' ? err.message : 'An unexpected error occurred',
+    message: isProduction ? 'An unexpected error occurred' : err.message
   });
 });
-
 
 // Error Handling for Uncaught Exceptions
 process.on('uncaughtException', (err) => {

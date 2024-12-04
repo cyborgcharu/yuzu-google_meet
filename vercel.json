@@ -13,7 +13,11 @@
   ],
   "routes": [
     {
-      "src": "/socket.io/(.*)",
+      "src": "/auth/google/login",
+      "dest": "src/utils/server.js"
+    },
+    {
+      "src": "/auth/google/callback",
       "dest": "src/utils/server.js"
     },
     {
@@ -21,20 +25,15 @@
       "dest": "src/utils/server.js"
     },
     {
-      "src": "/api/(.*)",
+      "src": "/socket.io/(.*)",
       "dest": "src/utils/server.js"
     },
     {
-      "src": "/health",
-      "dest": "src/utils/server.js"
-    },
-    {
-      "src": "^/assets/(.*)",
-      "dest": "/dist/assets/$1"
+      "handle": "filesystem"
     },
     {
       "src": "/(.*)",
-      "dest": "/dist/index.html"
+      "dest": "/dist/$1"
     }
   ]
 }
