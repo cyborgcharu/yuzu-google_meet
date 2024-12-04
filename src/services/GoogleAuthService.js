@@ -1,7 +1,9 @@
 // src/services/GoogleAuthService.js
 class GoogleAuthService {
   constructor() {
-    this.baseUrl = import.meta.env.VITE_API_BASE_URL;
+    this.baseUrl = process.env.NODE_ENV === 'production' 
+    ? 'https://yuzu-google-meet.vercel.app'
+    : import.meta.env.VITE_API_BASE_URL;
     this.redirectUri = import.meta.env.VITE_GOOGLE_REDIRECT_URI;
   }
 

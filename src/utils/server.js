@@ -45,7 +45,8 @@ const sessionMiddleware = session({
    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
    httpOnly: true,
    maxAge: 24 * 60 * 60 * 1000, // 24 hours
-   path: '/'
+   path: '/',
+   domain: process.env.NODE_ENV === 'production' ? '.vercel.app' : undefined
  },
  name: 'sessionId',
 });
@@ -59,11 +60,13 @@ app.use(sessionMiddleware);
 // CORS Configuration
 app.use(
   cors({
-    origin: FRONTEND_URL,
+    origin: process.env.NODE_ENV === 'production' 
+    ? 'https://yuzu-google-meet.vercel.app'
+    : FRONTEND_URL,
     credentials: true,
     methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
-    exposedHeaders: ['Access-Control-Allow-Origin'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Cookie'],
+    exposedHeaders: ['Set-Cookie', 'Access-Control-Allow-Origin'],
   })
 );
 
