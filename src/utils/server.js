@@ -11,7 +11,11 @@ import calendarRouter from '../server/routes/calendar.js';
 import { setupSocketServer } from './socketServer.js';
 
 // Load environment variables
-dotenv.config();
+dotenv.config({
+  path: process.env.NODE_ENV === 'production' 
+    ? '.env.production'
+    : '.env.development'
+});
 
 // Validate required environment variables
 const requiredEnvVars = ['VITE_GOOGLE_CLIENT_ID', 'VITE_GOOGLE_CLIENT_SECRET', 'SESSION_SECRET'];
@@ -37,18 +41,19 @@ const oauth2Client = new google.auth.OAuth2(
 
 // Create session middleware
 const sessionMiddleware = session({
- secret: process.env.SESSION_SECRET,
- resave: false,
- saveUninitialized: false,
- cookie: {
-   secure: process.env.NODE_ENV === 'production',
-   sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-   httpOnly: true,
-   maxAge: 24 * 60 * 60 * 1000, // 24 hours
-   path: '/',
-   domain: process.env.NODE_ENV === 'production' ? '.vercel.app' : undefined
- },
- name: 'sessionId',
+  secret: process.env.SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000,
+    domain: process.env.NODE_ENV === 'production' 
+      ? '.vercel.app'
+      : undefined
+  },
+  name: 'sessionId'
 });
 
 // Middleware Configuration
@@ -80,11 +85,25 @@ const server = app.listen(PORT, () => {
 // Initialize Socket.IO with CORS settings
 const io = new Server(server, {
   cors: {
-    origin: FRONTEND_URL,
+    origin: process.env.NODE_ENV === 'production' 
+      ? 'https://yuzu-google-meet.vercel.app'
+      : FRONTEND_URL,
     methods: ['GET', 'POST'],
     credentials: true
-  }
+  },
+  path: '/socket.io/',
+  transports: ['websocket', 'polling']
 });
+
+if (process.env.NODE_ENV === 'production') {
+  const path = await import('path');
+  const __dirname = path.dirname(new URL(import.meta.url).pathname);
+  app.use(express.static(path.join(__dirname, '../../dist')));
+  
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../../dist/index.html'));
+  });
+}
 
 // Share session between Express and Socket.IO
 io.use(sharedsession(sessionMiddleware, {

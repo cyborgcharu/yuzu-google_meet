@@ -7,7 +7,9 @@
     "dev:frontend": "vite",
     "dev:backend": "nodemon src/utils/server.js",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "start": "node src/utils/server.js",
+    "vercel-build": "npm run build"
   },
   "dependencies": {
     "buffer": "^6.0.3",
