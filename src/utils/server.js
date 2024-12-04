@@ -9,6 +9,8 @@ import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 import calendarRouter from '../server/routes/calendar.js';
 import { setupSocketServer } from './socketServer.js';
+import { Redis } from '@upstash/redis'
+import ConnectRedis from 'connect-redis'
 
 const PORT = process.env.PORT || 3000;
 const isProduction = process.env.NODE_ENV === 'production';
@@ -42,21 +44,25 @@ const oauth2Client = new google.auth.OAuth2(
  `${BACKEND_URL}/auth/google/callback`
 );
 
+// Initialize Redis client
+const redis = new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN,
+})
+
 // Create session middleware
 const sessionMiddleware = session({
- secret: process.env.SESSION_SECRET,
- resave: false,
- saveUninitialized: false,
- cookie: {
-   secure: process.env.NODE_ENV === 'production',
-   sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-   httpOnly: true,
-   maxAge: 24 * 60 * 60 * 1000, // 24 hours
-   path: '/',
-   domain: process.env.NODE_ENV === 'production' ? '.vercel.app' : undefined
- },
- name: 'sessionId',
-});
+  store: new RedisStore({ client: redis }),
+  secret: process.env.SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: isProduction,
+    sameSite: isProduction ? 'none' : 'lax',
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000
+  }
+})
 
 // Middleware Configuration
 app.use(express.json());
